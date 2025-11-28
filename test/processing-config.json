@@ -1,0 +1,22 @@
+{
+  "separator": ";",
+  "block": {
+    "expand": {
+      "path": "prix_clearing",
+      "block": {
+        "mapping": [{ "key": "bid_date", "path": "bid_date" }],
+        "expand": {
+          "path": "values",
+          "block": {
+            "mapping": [
+              { "key": "product", "path": "product" },
+              { "key": "delivery_year", "path": "delivery_year" },
+              { "key": "clearing_price", "path": "clearing_price" },
+              { "key": "unit", "path": "unit" }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

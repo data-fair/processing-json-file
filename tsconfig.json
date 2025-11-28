@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "nodenext",
+    "moduleResolution": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "strict": true,
+    "allowJs": true,
+    "checkJs": true,
+    "skipLibCheck": true,
+    "paths": {
+      "#types": ["./types/index.ts"],
+    },
+  },
+  "exclude": ["node_modules", "data",".type","config/*.cjs","eslint.config.mjs", "test"]
+}

@@ -1,0 +1,119 @@
+{
+  "type": "object",
+  "x-display": "tabs",
+  "required": ["datasetMode"],
+  "allOf": [
+    {
+      "title": "Jeu de données",
+      "dataset": {
+        "type": "object",
+        "x-fromUrl": "{context.dataFairUrl}/api/v1/datasets?q={q}&select=id,title&rest=true&{context.ownerFilter}",
+        "x-itemsProp": "results",
+        "x-itemTitle": "title",
+        "x-itemKey": "id",
+        "properties": {
+          "id": { "type": "string", "title": "Identifiant" },
+          "title": { "type": "string", "title": "Titre" }
+        }
+      }
+    },
+    {
+      "title": "Source des données",
+      "required": ["url"],
+      "properties": {
+        "url": {
+          "title": "URL source",
+          "type": "string",
+          "description": "les protocoles supportés sont HTTP, HTTPS, FTP et SFTP"
+        },
+        "username": {
+          "title": "Utilisateur",
+          "type": "string",
+          "layout": {
+            "props": {
+              "autocomplete": "new-text"
+            }
+          }
+        },
+        "password": {
+          "title": "Mot de passe",
+          "type": "string",
+          "layout": {
+            "props": {
+              "type": "password",
+              "autocomplete": "new-password"
+            }
+          }
+        }
+      }
+    },
+    {
+      "title": "Champs à récupérer",
+      "required": ["block"],
+      "properties": {
+        "resultsPath": {
+          "type": "string",
+          "title": "Chemin des résultats",
+          "description": "Chemin d'accès du tableau de résultats dans le json",
+          "default": ""
+        },
+        "block": { "$ref": "#/definitions/block" },
+        "separator": {
+          "type": "string",
+          "title": "Séparateur pour les tableaux",
+          "default": ";"
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "block": {
+      "type": "object",
+      "properties": {
+        "mapping": {
+          "type": "array",
+          "title": "Champs à récupérer",
+          "description": "Les colonnes qui seront récupérées depuis ce niveau",
+          "x-itemTitle": "key",
+          "items": {
+            "type": "object",
+            "required": ["key", "path"],
+            "properties": {
+              "key": {
+                "type": "string",
+                "title": "Identifiant de la colonne",
+                "description": "Clé de la colonne"
+              },
+              "path": {
+                "type": "string",
+                "title": "Chemin de la colonne",
+                "description": "Chemin d'accès dans le json à partir de cette position"
+              }
+            }
+          }
+        },
+        "expand": {
+          "title": "Données en profondeur d'un tableau",
+          "type": "object",
+          "layout": "card",
+          "properties": {
+            "path": {
+              "type": "string",
+              "title": "Chemin de la colonne",
+              "description": "Chemin d'accès dans le json à partir de cette position"
+            }
+          },
+          "dependencies": {
+            "path": {
+              "properties": {
+                "block": {
+                  "$ref": "#/definitions/block"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

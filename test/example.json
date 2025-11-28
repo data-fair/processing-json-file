@@ -1,0 +1,21 @@
+{
+  "prix_clearing": [
+    {
+      "bid_date": "2025-05-15",
+      "values": [
+        {
+          "product": "CAL29",
+          "delivery_year": "2029",
+          "clearing_price": 3,
+          "unit": "eur/MWh"
+        },
+        {
+          "product": "CAL30",
+          "delivery_year": "2030",
+          "clearing_price": null,
+          "unit": "eur/MWh"
+        }
+      ]
+    }
+  ]
+}

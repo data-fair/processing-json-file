@@ -1,0 +1,39 @@
+{
+  "name": "@data-fair/processing-json-file",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.ts",
+  "type": "module",
+  "scripts": {
+    "test": "NODE_ENV=test tsx test/test.ts",
+    "lint": "eslint --ignore-path .gitignore .",
+    "lint-fix": "eslint --ignore-path .gitignore --fix .",
+    "build-types": "df-build-types ./"
+  },
+  "author": "",
+  "license": "MIT",
+  "keywords": [
+    "data-fair-processings-plugin"
+  ],
+  "devDependencies": {
+    "@data-fair/lib-processing-dev": "^0.2.0",
+    "@data-fair/lib-types-builder": "^1.11.3",
+    "@types/config": "^3.3.5",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.17.19",
+    "config": "^3.3.6",
+    "eslint": "^9.13.0",
+    "neostandard": "^0.11.7",
+    "tsx": "^4.19.2",
+    "typescript": "5.3",
+    "ws": "^8.16.0"
+  },
+  "dependencies": {
+    "@tootallnate/once": "^3.0.0",
+    "axios": "^1.7.9",
+    "fs-extra": "^11.3.0",
+    "ftp": "^0.3.10",
+    "pump": "^3.0.3",
+    "ssh2-sftp-client": "^12.0.1"
+  }
+}
