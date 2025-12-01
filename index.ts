@@ -33,9 +33,7 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
   await fs.fsync(fd)
   await fs.close(fd)
   await log.info(`le fichier a été téléchargé (${filename})`)
-
   const json = JSON.parse(fs.readFileSync(tmpFile).toString())
-
   const data = convert(json, processingConfig)
   const resultBulk = (
     await axios({

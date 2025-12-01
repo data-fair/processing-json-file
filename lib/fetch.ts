@@ -6,6 +6,7 @@ import fs from 'fs-extra'
 import pump from 'pump'
 import SFTPClient from 'ssh2-sftp-client'
 import ftp from 'ftp'
+const ppump = promisify(pump)
 
 export const fetchHTTP = async (processingConfig, tmpFile, axios: AxiosInstance) => {
   const opts : AxiosRequestConfig = { responseType: 'stream', maxRedirects: 4 }
@@ -16,7 +17,7 @@ export const fetchHTTP = async (processingConfig, tmpFile, axios: AxiosInstance)
     }
   }
   const res = await axios.get(processingConfig.url, opts)
-  await pump(res.data, fs.createWriteStream(tmpFile))
+  await ppump(res.data, fs.createWriteStream(tmpFile))
   if (processingConfig.filename) return processingConfig.filename
   if (res.headers['content-disposition'] && res.headers['content-disposition'].includes('filename=')) {
     if (res.headers['content-disposition'].match(/filename=(.*);/)) return res.headers['content-disposition'].match(/filename=(.*);/)[1]

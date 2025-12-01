@@ -23,18 +23,32 @@ describe('JSON file processing', () => {
 //     console.log(data)
 //   })
 
-it('should process remote file', async () => {
-  processingConfig.username = config.username
-  processingConfig.password = config.password
-  processingConfig.dataset = config.dataset
-  processingConfig.url = config.url
-  const testsUtils = await import('@data-fair/lib-processing-dev/tests-utils.js')
-    const context = testsUtils.context({
-      pluginConfig: {},
-      processingConfig,
-      tmpDir: 'data'
-    }, config, true)
-    await run(context)
-  })
+// it('should process remote file', async () => {
+//   processingConfig.username = config.username
+//   processingConfig.password = config.password
+//   processingConfig.dataset = config.dataset
+//   processingConfig.url = config.url
+//   const testsUtils = await import('@data-fair/lib-processing-dev/tests-utils.js')
+//     const context = testsUtils.context({
+//       pluginConfig: {},
+//       processingConfig,
+//       tmpDir: 'data'
+//     }, config, true)
+//     await run(context)
+//   })
+
+  // it('should process remote file', async () => {
+  // // processingConfig.dataset = config.dataset
+  // processingConfig.url = 'https://www.data.gouv.fr/api/1/datasets/r/a4aeb850-e41d-420d-8124-c7dfdc160410'
+  // delete processingConfig.block.expand
+  // processingConfig.block.mapping = [{ "key": "adresse", "path": "adresse" }]
+  // const testsUtils = await import('@data-fair/lib-processing-dev/tests-utils.js')
+  //   const context = testsUtils.context({
+  //     pluginConfig: {},
+  //     processingConfig,
+  //     tmpDir: 'data'
+  //   }, config, true)
+  //   await run(context)
+  // })
 
 })
