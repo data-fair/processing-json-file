@@ -1,25 +1,31 @@
 {
   "type": "object",
   "x-display": "tabs",
-  "required": ["datasetMode"],
+  "required": ["dataset", "url"],
   "allOf": [
     {
       "title": "Jeu de données",
-      "dataset": {
-        "type": "object",
-        "x-fromUrl": "{context.dataFairUrl}/api/v1/datasets?q={q}&select=id,title&rest=true&{context.ownerFilter}",
-        "x-itemsProp": "results",
-        "x-itemTitle": "title",
-        "x-itemKey": "id",
-        "properties": {
-          "id": { "type": "string", "title": "Identifiant" },
-          "title": { "type": "string", "title": "Titre" }
+      "properties": {
+        "dataset": {
+          "type": "object",
+          "x-fromUrl": "{context.dataFairUrl}/api/v1/datasets?q={q}&select=id,title&rest=true&{context.ownerFilter}",
+          "x-itemsProp": "results",
+          "x-itemTitle": "title",
+          "x-itemKey": "id",
+          "properties": {
+            "id": { "type": "string", "title": "Identifiant" },
+            "title": { "type": "string", "title": "Titre" }
+          }
+        },
+        "drop": {
+          "type": "boolean",
+          "title": "Supprimer les données avant import",
+          "default": false
         }
       }
     },
     {
       "title": "Source des données",
-      "required": ["url"],
       "properties": {
         "url": {
           "title": "URL source",
@@ -49,7 +55,6 @@
     },
     {
       "title": "Champs à récupérer",
-      "required": ["block"],
       "properties": {
         "resultsPath": {
           "type": "string",

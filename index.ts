@@ -40,7 +40,7 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
   const resultBulk = (
     await axios({
       method: 'post',
-      url: `api/v1/datasets/${processingConfig.dataset.id}/_bulk_lines`,
+      url: `api/v1/datasets/${processingConfig.dataset.id}/_bulk_lines?drop=${processingConfig.drop}`,
       data
     })
   ).data
