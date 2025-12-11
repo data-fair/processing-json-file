@@ -1,6 +1,6 @@
 import fs from 'fs-extra'
 import path from 'path'
-import { fetchHTTP, fetchSFTP, fetchFTP } from './lib/fetch.ts'
+import { fetchHTTP, fetchSFTP, fetchFTP, listFiles } from './lib/fetch.ts'
 import { convert } from './lib/convert.ts'
 import type { ProcessingContext } from '@data-fair/lib-common-types/processings.js'
 
@@ -11,30 +11,45 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
   if (!dataset) throw new Error(`le jeu de données n'existe pas, id${processingConfig.dataset.id}`)
   await log.info(`le jeu de donnée existe, id="${dataset.id}", title="${dataset.title}"`)
 
-  await log.step('Téléchargement du fichier')
-  const tmpFile = path.join(tmpDir, 'file')
-  // creating empty file before streaming seems to fix some weird bugs with NFS
-  await fs.ensureFile(tmpFile)
-
-  const url = new URL(processingConfig.url)
-  let filename = decodeURIComponent(path.parse(processingConfig.url).base)
-  if (url.protocol === 'http:' || url.protocol === 'https:') {
-    filename = await fetchHTTP(processingConfig, tmpFile, axios) || filename
-  } else if (url.protocol === 'sftp:') {
-    await fetchSFTP(processingConfig, tmpFile)
-  } else if (url.protocol === 'ftp:' || url.protocol === 'ftps:') {
-    await fetchFTP(processingConfig, tmpFile)
+  let files = []
+  const filePath = decodeURIComponent(path.parse(processingConfig.url).base)
+  const baseUrl = decodeURIComponent(path.parse(processingConfig.url).dir)
+  if (processingConfig.url.endsWith('.json')) {
+    files = [filePath]
+  } else if (processingConfig.url.endsWith('/')) {
+    const remoteFiles = await listFiles(processingConfig)
+    files = remoteFiles.map(f => filePath + '/' + f.name)
   } else {
-    throw new Error(`protocole non supporté "${url.protocol}"`)
+    log.error('Wrong path, it should end with \'/\' or \'.json\' ')
   }
 
-  // Try to prevent weird bug with NFS by forcing syncing file before reading it
-  const fd = await fs.open(tmpFile, 'r')
-  await fs.fsync(fd)
-  await fs.close(fd)
-  await log.info(`le fichier a été téléchargé (${filename})`)
-  const json = JSON.parse(fs.readFileSync(tmpFile).toString())
-  const data = convert(json, processingConfig)
+  let data = []
+  for (const file of files) {
+    await log.step('Téléchargement du fichier')
+    const tmpFile = path.join(tmpDir, file)
+    // creating empty file before streaming seems to fix some weird bugs with NFS
+    await fs.ensureFile(tmpFile)
+
+    const url = new URL(baseUrl + '/' + file)
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      await fetchHTTP(url, processingConfig, tmpFile, axios)
+    } else if (url.protocol === 'sftp:') {
+      await fetchSFTP(url, processingConfig, tmpFile)
+    } else if (url.protocol === 'ftp:' || url.protocol === 'ftps:') {
+      await fetchFTP(url, processingConfig, tmpFile)
+    } else {
+      throw new Error(`protocole non supporté "${url.protocol}"`)
+    }
+
+    // Try to prevent weird bug with NFS by forcing syncing file before reading it
+    const fd = await fs.open(tmpFile, 'r')
+    await fs.fsync(fd)
+    await fs.close(fd)
+    await log.info(`le fichier a été téléchargé (${file})`)
+    const json = JSON.parse(fs.readFileSync(tmpFile).toString())
+    data = data.concat(convert(json, processingConfig))
+  }
+
   const resultBulk = (
     await axios({
       method: 'post',

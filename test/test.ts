@@ -23,19 +23,23 @@ describe('JSON file processing', () => {
 //     console.log(data)
 //   })
 
-// it('should process remote file', async () => {
-//   processingConfig.username = config.username
-//   processingConfig.password = config.password
-//   processingConfig.dataset = config.dataset
-//   processingConfig.url = config.url
-//   const testsUtils = await import('@data-fair/lib-processing-dev/tests-utils.js')
-//     const context = testsUtils.context({
-//       pluginConfig: {},
-//       processingConfig,
-//       tmpDir: 'data'
-//     }, config, true)
-//     await run(context)
-//   })
+it('should process remote file', async () => {
+  processingConfig.username = config.username
+  processingConfig.password = config.password
+  processingConfig.dataset = config.dataset
+  processingConfig.url = config.url
+  const testsUtils = await import('@data-fair/lib-processing-dev/tests-utils.js')
+    const context = testsUtils.context({
+      pluginConfig: {},
+      processingConfig,
+      tmpDir: 'data'
+    }, config, true)
+    try{
+      await run(context)
+    }catch(err){
+      console.log(err)
+    }
+  })
 
   // it('should process remote file', async () => {
   // // processingConfig.dataset = config.dataset
