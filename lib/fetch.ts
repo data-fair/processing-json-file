@@ -16,7 +16,7 @@ export const fetchHTTP = async (url, processingConfig, tmpFile, axios: AxiosInst
       password: processingConfig.password
     }
   }
-  const res = await axios.get(url, opts)
+  const res = await axios.get(url.href, opts)
   await ppump(res.data, fs.createWriteStream(tmpFile))
   if (processingConfig.filename) return processingConfig.filename
   if (res.headers['content-disposition'] && res.headers['content-disposition'].includes('filename=')) {

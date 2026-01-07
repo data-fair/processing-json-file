@@ -18,9 +18,10 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
     files = [filePath]
   } else if (processingConfig.url.endsWith('/')) {
     const remoteFiles = await listFiles(processingConfig)
-    files = remoteFiles.map(f => filePath + '/' + f.name)
+    files = remoteFiles.map(f => filePath + '/' + f.name).filter(f => f.endsWith('.json'))
   } else {
-    log.error('Wrong path, it should end with \'/\' or \'.json\' ')
+    files = [filePath]
+    log.warning('Suspicious path, it should end with \'/\' or \'.json\' ')
   }
 
   let data = []
@@ -49,7 +50,6 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
     const json = JSON.parse(fs.readFileSync(tmpFile).toString())
     data = data.concat(convert(json, processingConfig))
   }
-
   const resultBulk = (
     await axios({
       method: 'post',

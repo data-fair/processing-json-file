@@ -52,7 +52,11 @@ it('should process remote file', async () => {
   //     processingConfig,
   //     tmpDir: 'data'
   //   }, config, true)
-  //   await run(context)
+  //   try{
+  //     await run(context)
+  //   } catch(err){
+  //     console.log(err)
+  //   }
   // })
 
 })
