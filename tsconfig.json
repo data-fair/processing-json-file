@@ -13,5 +13,5 @@
       "#types": ["./types/index.ts"],
     },
   },
-  "exclude": ["node_modules", "data",".type","config/*.cjs","eslint.config.mjs", "test"]
+  "exclude": ["node_modules", "data",".type","config/*.cjs","eslint.config.mjs", "test-it"]
 }

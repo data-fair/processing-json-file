@@ -32,14 +32,23 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
     await fs.ensureFile(tmpFile)
 
     const url = new URL(baseUrl + '/' + file)
-    if (url.protocol === 'http:' || url.protocol === 'https:') {
-      await fetchHTTP(url, processingConfig, tmpFile, axios)
-    } else if (url.protocol === 'sftp:') {
-      await fetchSFTP(url, processingConfig, tmpFile)
-    } else if (url.protocol === 'ftp:' || url.protocol === 'ftps:') {
-      await fetchFTP(url, processingConfig, tmpFile)
-    } else {
-      throw new Error(`protocole non supporté "${url.protocol}"`)
+    try {
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        await fetchHTTP(url, processingConfig, tmpFile, axios)
+      } else if (url.protocol === 'sftp:') {
+        await fetchSFTP(url, processingConfig, tmpFile)
+      } else if (url.protocol === 'ftp:' || url.protocol === 'ftps:') {
+        await fetchFTP(url, processingConfig, tmpFile)
+      } else {
+        throw new Error(`protocole non supporté "${url.protocol}"`)
+      }
+    } catch (err) {
+      const notFoundError = err.message?.includes('No such file') || err.message?.includes('404') || err.code === 'ENOENT'
+      if (notFoundError && processingConfig.deleteOnComplete) {
+        await log.warning(`fichier non trouvé (${file}), suppression du run car deleteOnComplete est activé`)
+        return { deleteOnComplete: true }
+      }
+      throw err
     }
 
     // Try to prevent weird bug with NFS by forcing syncing file before reading it

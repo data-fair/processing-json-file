@@ -1,7 +1,6 @@
-node_modules/
+config/local-*
 data/
-/config/local-*
-errors.log
+node_modules/
 .type/
-*.d.ts
-*.js
+.env
+*.tgz

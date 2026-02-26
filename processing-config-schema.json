@@ -50,6 +50,10 @@
               "autocomplete": "new-password"
             }
           }
+        },
+        "deleteOnComplete": {
+          "type": "boolean",
+          "title": "Supprimer la dernière execution si le fichier n'a pas été trouvé"
         }
       }
     },
