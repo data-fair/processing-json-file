@@ -51,9 +51,10 @@
             }
           }
         },
-        "deleteOnComplete": {
+        "processAndDelete": {
           "type": "boolean",
-          "title": "Supprimer la dernière execution si le fichier n'a pas été trouvé"
+          "title": "Supprimer le fichier source après import (FTP/SFTP uniquement)",
+          "description": "Ignore l'exécution si le fichier n'est pas trouvé ou le supprime après un import réussi"
         }
       }
     },

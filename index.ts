@@ -1,6 +1,6 @@
 import fs from 'fs-extra'
 import path from 'path'
-import { fetchHTTP, fetchSFTP, fetchFTP, listFiles } from './lib/fetch.ts'
+import { fetchHTTP, fetchSFTP, fetchFTP, listFiles, FileNotFoundError, deleteRemoteFile } from './lib/fetch.ts'
 import { convert } from './lib/convert.ts'
 import type { ProcessingContext } from '@data-fair/lib-common-types/processings.js'
 
@@ -42,10 +42,9 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
       } else {
         throw new Error(`protocole non supporté "${url.protocol}"`)
       }
-    } catch (err) {
-      const notFoundError = err.message?.includes('No such file') || err.message?.includes('404') || err.code === 'ENOENT'
-      if (notFoundError && processingConfig.deleteOnComplete) {
-        await log.warning(`fichier non trouvé (${file}), suppression du run car deleteOnComplete est activé`)
+    } catch (err: any) {
+      if (err instanceof FileNotFoundError && processingConfig.processAndDelete) {
+        await log.warning(`fichier non trouvé (${file}), exécution ignorée`)
         return { deleteOnComplete: true }
       }
       throw err
@@ -58,6 +57,11 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
     await log.info(`le fichier a été téléchargé (${file})`)
     const json = JSON.parse(fs.readFileSync(tmpFile).toString())
     data = data.concat(convert(json, processingConfig))
+
+    if (processingConfig.processAndDelete) {
+      await log.info(`suppression du fichier source (${file})`)
+      await deleteRemoteFile(processingConfig, file)
+    }
   }
   const resultBulk = (
     await axios({
