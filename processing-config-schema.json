@@ -8,6 +8,7 @@
       "properties": {
         "dataset": {
           "type": "object",
+          "title": "Jeu de données (éditable uniquement)",
           "x-fromUrl": "{context.dataFairUrl}/api/v1/datasets?q={q}&select=id,title&rest=true&{context.ownerFilter}",
           "x-itemsProp": "results",
           "x-itemTitle": "title",
@@ -30,7 +31,7 @@
         "url": {
           "title": "URL source",
           "type": "string",
-          "description": "les protocoles supportés sont HTTP, HTTPS, FTP et SFTP"
+          "description": "Les protocoles supportés sont HTTP, HTTPS, FTP et SFTP.\n\n- **URL vers un dossier** (se terminant par `/`) : importe tous les fichiers `.json` du dossier.\n- **URL vers un fichier** (se terminant par `.json`) : importe ce fichier uniquement.\n\nSi l'URL ne se termine ni par `/` ni par `.json`, le comportement par défaut tente de télécharger un fichier unique."
         },
         "username": {
           "title": "Utilisateur",

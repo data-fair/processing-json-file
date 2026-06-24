@@ -54,7 +54,9 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
           await log.warning(`fichier non trouvé (${file}), exécution ignorée`)
           return { deleteOnComplete: true }
         }
-        throw err
+        // message clair pour l'utilisateur, détail technique du serveur distant en extra (superadmins)
+        await log.info(`échec du téléchargement de "${file}" depuis ${url.host}, vérifiez l'URL source (elle doit pointer vers un fichier .json ou un dossier se terminant par "/")`, { url: url.href, message: err.message, stack: err.stack })
+        throw new Error(`échec du téléchargement de "${file}"`)
       }
 
       // Try to prevent weird bug with NFS by forcing syncing file before reading it
