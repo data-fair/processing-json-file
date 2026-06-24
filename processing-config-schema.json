@@ -31,7 +31,7 @@
         "url": {
           "title": "URL source",
           "type": "string",
-          "description": "Les protocoles supportés sont HTTP, HTTPS, FTP et SFTP.\n\n- **URL vers un dossier** (se terminant par `/`) : importe tous les fichiers `.json` du dossier.\n- **URL vers un fichier** (se terminant par `.json`) : importe ce fichier uniquement.\n\nSi l'URL ne se termine ni par `/` ni par `.json`, le comportement par défaut tente de télécharger un fichier unique."
+          "description": "Les protocoles supportés sont HTTP, HTTPS, FTP et SFTP.\n\n- **URL vers un dossier** (se terminant par `/`) : importe tous les fichiers `.json` du dossier (extension insensible à la casse, `.json` comme `.JSON`).\n- **URL vers un fichier** (se terminant par `.json`) : importe ce fichier uniquement.\n\nSi l'URL ne se termine ni par `/` ni par `.json`, le comportement par défaut tente de télécharger un fichier unique."
         },
         "username": {
           "title": "Utilisateur",
@@ -54,8 +54,8 @@
         },
         "processAndDelete": {
           "type": "boolean",
-          "title": "Supprimer le fichier source après import (FTP/SFTP uniquement)",
-          "description": "Ignore l'exécution si le fichier n'est pas trouvé ou le supprime après un import réussi"
+          "title": "Supprimer le(s) fichier(s) source après import (FTP/SFTP uniquement)",
+          "description": "Disponible uniquement pour les sources FTP et SFTP.\n\n- Après un import réussi, chaque fichier source téléchargé est supprimé du serveur distant.\n- Si aucun fichier n'est trouvé sur le serveur, l'exécution est ignorée : elle se termine sans erreur et n'apparaît pas dans la liste des exécutions."
         }
       }
     },
