@@ -9,7 +9,7 @@ import * as FTPClient from 'ftp'
 const ppump = promisify(pump)
 
 export class FileNotFoundError extends Error {
-  constructor(message: string) {
+  constructor (message: string) {
     super(message)
     this.name = 'FileNotFoundError'
   }
@@ -40,16 +40,26 @@ export const fetchHTTP = async (url, processingConfig, tmpFile, axios: AxiosInst
   if (res.request && res.request.res && res.request.res.responseUrl) return decodeURIComponent(path.parse(res.request.res.responseUrl).base)
 }
 
-export const fetchSFTP = async (url, processingConfig, tmpFile) => {
+// open a single SFTP connection, meant to be reused across many operations
+// (listing, downloading, deleting) to avoid paying the SSH handshake cost per file
+export const connectSFTP = async (processingConfig): Promise<SFTPClient> => {
+  const url = new URL(processingConfig.url)
   const sftp = new SFTPClient()
+  await sftp.connect({ host: url.hostname, port: url.port, username: processingConfig.username, password: processingConfig.password })
+  return sftp
+}
+
+export const fetchSFTP = async (url, processingConfig, tmpFile, sftpClient?: SFTPClient) => {
+  const sftp = sftpClient ?? await connectSFTP(processingConfig)
   try {
-    await sftp.connect({ host: url.hostname, port: url.port, username: processingConfig.username, password: processingConfig.password })
     await sftp.get(url.pathname, tmpFile)
   } catch (err: any) {
     if (err.message?.includes('no such file') || err.code === 'ENOENT') {
       throw new FileNotFoundError(`File not found: ${url.pathname}`)
     }
     throw err
+  } finally {
+    if (!sftpClient) await sftp.end()
   }
   return processingConfig.filename || decodeURIComponent(path.basename(url.pathname))
 }
@@ -71,15 +81,18 @@ export const fetchFTP = async (url, processingConfig, tmpFile) => {
   return processingConfig.filename || decodeURIComponent(path.basename(url.pathname))
 }
 
-export const listFiles = async (processingConfig) => {
+export const listFiles = async (processingConfig, sftpClient?: SFTPClient) => {
   const url = new URL(processingConfig.url)
   // if (url.protocol === 'http:' || url.protocol === 'https:') {
   //   await fetchHTTP(url, processingConfig, tmpFile, axios)
   // } else
   if (url.protocol === 'sftp:') {
-    const sftp = new SFTPClient()
-    await sftp.connect({ host: url.hostname, port: url.port, username: processingConfig.username, password: processingConfig.password })
-    return await sftp.list(url.pathname)
+    const sftp = sftpClient ?? await connectSFTP(processingConfig)
+    try {
+      return await sftp.list(url.pathname)
+    } finally {
+      if (!sftpClient) await sftp.end()
+    }
     // } else if (url.protocol === 'ftp:' || url.protocol === 'ftps:') {
     //   await fetchFTP(url, processingConfig, tmpFile)
   } else {
@@ -87,14 +100,17 @@ export const listFiles = async (processingConfig) => {
   }
 }
 
-export const deleteRemoteFile = async (processingConfig, filePath: string) => {
+export const deleteRemoteFile = async (processingConfig, filePath: string, sftpClient?: SFTPClient) => {
   const url = new URL(processingConfig.url)
   const remotePath = new URL(filePath, processingConfig.url).pathname
-  
+
   if (url.protocol === 'sftp:') {
-    const sftp = new SFTPClient()
-    await sftp.connect({ host: url.hostname, port: url.port, username: processingConfig.username, password: processingConfig.password })
-    await sftp.delete(remotePath)
+    const sftp = sftpClient ?? await connectSFTP(processingConfig)
+    try {
+      await sftp.delete(remotePath)
+    } finally {
+      if (!sftpClient) await sftp.end()
+    }
   } else if (url.protocol === 'ftp:' || url.protocol === 'ftps:') {
     const ftp = new FTPClient()
     ftp.connect({ host: url.hostname, port: url.port, user: processingConfig.username, password: processingConfig.password })

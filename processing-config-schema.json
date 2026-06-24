@@ -37,7 +37,7 @@
           "type": "string",
           "layout": {
             "props": {
-              "autocomplete": "new-text"
+              "autocomplete": "suppress"
             }
           }
         },
@@ -47,7 +47,7 @@
           "layout": {
             "props": {
               "type": "password",
-              "autocomplete": "new-password"
+              "autocomplete": "suppress"
             }
           }
         },

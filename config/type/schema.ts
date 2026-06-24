@@ -1,5 +1,5 @@
 export default {
-    $id: 'https://github.com/data-fair/processings-json-file/config',
+    $id: 'https://github.com/data-fair/processing-json-file/config',
     'x-exports': [
       'types',
       'validate'
