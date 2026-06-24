@@ -8,14 +8,10 @@ import testUtils from '@data-fair/lib-processing-dev/tests-utils.js'
 import example from './resources/example.json' with { type: 'json' }
 import processingConfig from './resources/processing-config.json' with { type: 'json' }
 
-import processingConfigSchema from '../plugin-config-schema.json' with { type: 'json' }
-import pluginConfigSchema from '../plugin-config-schema.json' with { type: 'json' }
+import processingConfigSchema from '../processing-config-schema.json' with { type: 'json' }
 
 describe('JSON file processing', () => {
-  it('should expose a plugin config schema for super admins', async () => {
-    assert.ok(pluginConfigSchema)
-  })
-
+  // Each plugin should expose a processing config schema
   it('should expose a processing config schema for users', async () => {
     assert.equal(processingConfigSchema.type, 'object')
   })
