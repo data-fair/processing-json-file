@@ -1,6 +1,6 @@
 import fs from 'fs-extra'
 import path from 'path'
-import { fetchHTTP, fetchSFTP, fetchFTP, listFiles, FileNotFoundError, deleteRemoteFile, connectSFTP } from './lib/fetch.ts'
+import { fetchHTTP, fetchSFTP, fetchFTP, listFiles, FileNotFoundError, deleteRemoteFile, connectSFTP, connectFTP } from './lib/fetch.ts'
 import { convert } from './lib/convert.ts'
 import type { ProcessingContext } from '@data-fair/lib-common-types/processings.js'
 
@@ -12,9 +12,10 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
   await log.info(`le jeu de donnée existe, id="${dataset.id}", title="${dataset.title}"`)
 
   const protocol = new URL(processingConfig.url).protocol
-  // open a single SFTP connection reused for listing, every download and every
-  // deletion, instead of paying the SSH handshake cost once per file
+  // open a single connection reused for listing, every download and every
+  // deletion, instead of reconnecting once per file
   const sftp = protocol === 'sftp:' ? await connectSFTP(processingConfig) : undefined
+  const ftp = (protocol === 'ftp:' || protocol === 'ftps:') ? await connectFTP(processingConfig) : undefined
 
   let data = []
   try {
@@ -44,7 +45,7 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
         } else if (url.protocol === 'sftp:') {
           await fetchSFTP(url, processingConfig, tmpFile, sftp)
         } else if (url.protocol === 'ftp:' || url.protocol === 'ftps:') {
-          await fetchFTP(url, processingConfig, tmpFile)
+          await fetchFTP(url, processingConfig, tmpFile, ftp)
         } else {
           throw new Error(`protocole non supporté "${url.protocol}"`)
         }
@@ -66,11 +67,12 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
 
       if (processingConfig.processAndDelete) {
         await log.info(`suppression du fichier source (${file})`)
-        await deleteRemoteFile(processingConfig, file, sftp)
+        await deleteRemoteFile(processingConfig, file, sftp ?? ftp)
       }
     }
   } finally {
     if (sftp) await sftp.end()
+    if (ftp) ftp.end()
   }
   const resultBulk = (
     await axios({

@@ -64,19 +64,30 @@ export const fetchSFTP = async (url, processingConfig, tmpFile, sftpClient?: SFT
   return processingConfig.filename || decodeURIComponent(path.basename(url.pathname))
 }
 
-export const fetchFTP = async (url, processingConfig, tmpFile) => {
+// open a single FTP connection, meant to be reused across many operations
+// (downloading, deleting) to avoid reconnecting per file
+export const connectFTP = async (processingConfig): Promise<any> => {
+  const url = new URL(processingConfig.url)
   const ftp = new FTPClient()
+  ftp.connect({ host: url.hostname, port: url.port, user: processingConfig.username, password: processingConfig.password })
+  await once(ftp, 'ready')
+  return ftp
+}
+
+export const fetchFTP = async (url, processingConfig, tmpFile, ftpClient?: any) => {
+  const ftp = ftpClient ?? await connectFTP(processingConfig)
   try {
-    ftp.connect({ host: url.hostname, port: url.port, user: processingConfig.username, password: processingConfig.password })
-    await once(ftp, 'ready')
-    ftp.get = promisify(ftp.get)
-    const stream = await ftp.get(url.pathname)
-    await pump(stream, fs.createWriteStream(tmpFile))
+    // promisify into a local to avoid mutating (and double-wrapping) a reused client
+    const get = promisify(ftp.get.bind(ftp))
+    const stream = await get(url.pathname)
+    await ppump(stream, fs.createWriteStream(tmpFile))
   } catch (err: any) {
     if (err.message?.includes('no such file') || err.message?.includes('Not found')) {
       throw new FileNotFoundError(`File not found: ${url.pathname}`)
     }
     throw err
+  } finally {
+    if (!ftpClient) ftp.end()
   }
   return processingConfig.filename || decodeURIComponent(path.basename(url.pathname))
 }
@@ -100,22 +111,25 @@ export const listFiles = async (processingConfig, sftpClient?: SFTPClient) => {
   }
 }
 
-export const deleteRemoteFile = async (processingConfig, filePath: string, sftpClient?: SFTPClient) => {
+export const deleteRemoteFile = async (processingConfig, filePath: string, client?: any) => {
   const url = new URL(processingConfig.url)
   const remotePath = new URL(filePath, processingConfig.url).pathname
 
   if (url.protocol === 'sftp:') {
-    const sftp = sftpClient ?? await connectSFTP(processingConfig)
+    const sftp: SFTPClient = client ?? await connectSFTP(processingConfig)
     try {
       await sftp.delete(remotePath)
     } finally {
-      if (!sftpClient) await sftp.end()
+      if (!client) await sftp.end()
     }
   } else if (url.protocol === 'ftp:' || url.protocol === 'ftps:') {
-    const ftp = new FTPClient()
-    ftp.connect({ host: url.hostname, port: url.port, user: processingConfig.username, password: processingConfig.password })
-    await once(ftp, 'ready')
-    ftp.delete = promisify(ftp.delete)
-    await ftp.delete(remotePath)
+    const ftp = client ?? await connectFTP(processingConfig)
+    try {
+      // promisify into a local to avoid mutating (and double-wrapping) a reused client
+      const del = promisify(ftp.delete.bind(ftp))
+      await del(remotePath)
+    } finally {
+      if (!client) ftp.end()
+    }
   }
 }
