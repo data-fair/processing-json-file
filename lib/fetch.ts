@@ -1,12 +1,13 @@
 import type { AxiosInstance, AxiosRequestConfig } from 'axios'
+import type { Readable, Writable } from 'stream'
 import path from 'path'
 import { promisify } from 'util'
 import once from '@tootallnate/once'
 import fs from 'fs-extra'
 import pump from 'pump'
 import SFTPClient from 'ssh2-sftp-client'
-import * as FTPClient from 'ftp'
-const ppump = promisify(pump)
+import FTPClient from 'ftp'
+const ppump = promisify(pump as (source: Readable, dest: Writable, cb: (err?: Error) => void) => void)
 
 export class FileNotFoundError extends Error {
   constructor (message: string) {
@@ -15,7 +16,7 @@ export class FileNotFoundError extends Error {
   }
 }
 
-export const fetchHTTP = async (url, processingConfig, tmpFile, axios: AxiosInstance) => {
+export const fetchHTTP = async (url: URL, processingConfig: any, tmpFile: string, axios: AxiosInstance) => {
   const opts : AxiosRequestConfig = { responseType: 'stream', maxRedirects: 4 }
   if (processingConfig.username && processingConfig.password) {
     opts.auth = {
@@ -42,14 +43,14 @@ export const fetchHTTP = async (url, processingConfig, tmpFile, axios: AxiosInst
 
 // open a single SFTP connection, meant to be reused across many operations
 // (listing, downloading, deleting) to avoid paying the SSH handshake cost per file
-export const connectSFTP = async (processingConfig): Promise<SFTPClient> => {
+export const connectSFTP = async (processingConfig: any): Promise<SFTPClient> => {
   const url = new URL(processingConfig.url)
   const sftp = new SFTPClient()
-  await sftp.connect({ host: url.hostname, port: url.port, username: processingConfig.username, password: processingConfig.password })
+  await sftp.connect({ host: url.hostname, port: url.port ? Number(url.port) : undefined, username: processingConfig.username, password: processingConfig.password })
   return sftp
 }
 
-export const fetchSFTP = async (url, processingConfig, tmpFile, sftpClient?: SFTPClient) => {
+export const fetchSFTP = async (url: URL, processingConfig: any, tmpFile: string, sftpClient?: SFTPClient) => {
   const sftp = sftpClient ?? await connectSFTP(processingConfig)
   try {
     await sftp.get(url.pathname, tmpFile)
@@ -66,15 +67,15 @@ export const fetchSFTP = async (url, processingConfig, tmpFile, sftpClient?: SFT
 
 // open a single FTP connection, meant to be reused across many operations
 // (downloading, deleting) to avoid reconnecting per file
-export const connectFTP = async (processingConfig): Promise<any> => {
+export const connectFTP = async (processingConfig: any): Promise<any> => {
   const url = new URL(processingConfig.url)
   const ftp = new FTPClient()
-  ftp.connect({ host: url.hostname, port: url.port, user: processingConfig.username, password: processingConfig.password })
+  ftp.connect({ host: url.hostname, port: url.port ? Number(url.port) : undefined, user: processingConfig.username, password: processingConfig.password })
   await once(ftp, 'ready')
   return ftp
 }
 
-export const fetchFTP = async (url, processingConfig, tmpFile, ftpClient?: any) => {
+export const fetchFTP = async (url: URL, processingConfig: any, tmpFile: string, ftpClient?: any) => {
   const ftp = ftpClient ?? await connectFTP(processingConfig)
   try {
     // promisify into a local to avoid mutating (and double-wrapping) a reused client
@@ -92,7 +93,7 @@ export const fetchFTP = async (url, processingConfig, tmpFile, ftpClient?: any) 
   return processingConfig.filename || decodeURIComponent(path.basename(url.pathname))
 }
 
-export const listFiles = async (processingConfig, sftpClient?: SFTPClient) => {
+export const listFiles = async (processingConfig: any, sftpClient?: SFTPClient) => {
   const url = new URL(processingConfig.url)
   // if (url.protocol === 'http:' || url.protocol === 'https:') {
   //   await fetchHTTP(url, processingConfig, tmpFile, axios)
@@ -111,7 +112,7 @@ export const listFiles = async (processingConfig, sftpClient?: SFTPClient) => {
   }
 }
 
-export const deleteRemoteFile = async (processingConfig, filePath: string, client?: any) => {
+export const deleteRemoteFile = async (processingConfig: any, filePath: string, client?: any) => {
   const url = new URL(processingConfig.url)
   const remotePath = new URL(filePath, processingConfig.url).pathname
 

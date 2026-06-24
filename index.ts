@@ -17,7 +17,7 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
   const sftp = protocol === 'sftp:' ? await connectSFTP(processingConfig) : undefined
   const ftp = (protocol === 'ftp:' || protocol === 'ftps:') ? await connectFTP(processingConfig) : undefined
 
-  let data = []
+  let data: any[] = []
   try {
     let files = []
     const filePath = decodeURIComponent(path.parse(processingConfig.url).base)
@@ -62,7 +62,7 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
       await fs.fsync(fd)
       await fs.close(fd)
       await log.info(`le fichier a été téléchargé (${file})`)
-      const json = JSON.parse(fs.readFileSync(tmpFile).toString())
+      const json = JSON.parse(await fs.readFile(tmpFile, 'utf8'))
       data = data.concat(convert(json, processingConfig))
 
       if (processingConfig.processAndDelete) {

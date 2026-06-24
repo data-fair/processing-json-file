@@ -19,13 +19,13 @@ const getValueByPath = function (obj : any, path : string): any {
   else return obj
 }
 
-const process = function (data: any, block, separator: string, common = {}): Array<any> {
+const process = function (data: any, block: any, separator: string, common = {}): Array<any> {
   let base = {}
   if (block?.mapping?.length) {
-    base = Object.assign({}, ...block.mapping.map(m => {
+    base = Object.assign({}, ...block.mapping.map((m: any) => {
       const values = getValueByPath(data, m.path)
       if (values == null) return {}
-      return { [m.key]: (values.constructor === Array) ? values.join(separator) : getValueByPath(data, m.path) }
+      return { [m.key]: (values.constructor === Array) ? values.join(separator) : values }
     }))
   }
   if (block?.expand?.path) {
@@ -33,8 +33,8 @@ const process = function (data: any, block, separator: string, common = {}): Arr
   } else return [{ ...base, ...common }]
 }
 
-export const convert = (data: any, processingConfig): Array<any> => {
+export const convert = (data: any, processingConfig: any): Array<any> => {
   const dataAsArray = (Array.isArray(data) ? data : [data])
   const processedData : Array<Array<any>> = dataAsArray.map(d => process(d, processingConfig.block, processingConfig.separator))
-  return [].concat(...processedData)
+  return processedData.flat()
 }
