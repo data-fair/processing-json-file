@@ -1,7 +1,7 @@
 {
   "type": "object",
   "x-display": "tabs",
-  "required": ["dataset", "url", "format"],
+  "required": ["dataset", "url"],
   "allOf": [
     {
       "title": "Jeu de données",
@@ -53,62 +53,44 @@
             }
           }
         },
+        "format": {
+          "type": "string",
+          "title": "Format des fichiers sources",
+          "default": "json",
+          "oneOf": [
+            { "const": "json", "title": "JSON" },
+            { "const": "csv", "title": "CSV" }
+          ]
+        },
         "processAndDelete": {
           "type": "boolean",
           "title": "Supprimer le(s) fichier(s) source après import (FTP/SFTP uniquement)",
           "description": "Disponible uniquement pour les sources FTP et SFTP.\n\n- Après un import réussi, chaque fichier source téléchargé est supprimé du serveur distant (ou déplacé, voir l'option « Déplacer au lieu de supprimer »).\n- Si aucun fichier n'est trouvé sur le serveur, l'exécution est ignorée : elle se termine sans erreur et n'apparaît pas dans la liste des exécutions."
-        }
-      },
-      "dependencies": {
-        "processAndDelete": {
-          "properties": {
-            "moveInsteadOfDelete": {
-              "type": "boolean",
-              "title": "Déplacer au lieu de supprimer",
-              "description": "Au lieu de supprimer le(s) fichier(s) source après import, les déplace dans un sous-dossier `backup` : créé à côté du fichier si l'URL source pointe vers un fichier unique, ou à l'intérieur du dossier importé si l'URL source pointe vers un dossier."
-            }
-          }
+        },
+        "processAndMove": {
+          "type": "boolean",
+          "title": "Déplacer le(s) fichier(s) source après import (FTP/SFTP uniquement)",
+          "description": "Au lieu de supprimer le(s) fichier(s) source après import, ils sont déplacés dans un sous-dossier `backup`.\n\n- Si l'URL source pointe vers un fichier unique, le dossier `backup` est créé à côté de ce fichier.\n- Si l'URL source pointe vers un dossier, le dossier `backup` est créé à l'intérieur de ce dossier.\n\nCela permet de conserver une copie des fichiers importés sans les laisser sur le serveur distant à leur emplacement d'origine."
         }
       }
     },
-    {
+    { 
+      "layout": { "if": "!parent.data.format || parent.data.format === 'json'" },
       "title": "Champs à récupérer",
-      "oneOf": [
-        {
-          "title": "JSON",
-          "properties": {
-            "format": {
-              "type": "string",
-              "const": "json",
-              "title": "Format des fichiers sources",
-              "default": "json"
-            },
-            "resultsPath": {
-              "type": "string",
-              "title": "Chemin des résultats",
-              "description": "Chemin d'accès du tableau de résultats dans le json",
-              "default": ""
-            },
-            "block": { "$ref": "#/definitions/block" },
-            "separator": {
-              "type": "string",
-              "title": "Séparateur pour les tableaux",
-              "default": ";"
-            }
-          }
+      "properties": {
+        "resultsPath": {
+          "type": "string",
+          "title": "Chemin des résultats",
+          "description": "Chemin d'accès du tableau de résultats dans le json",
+          "default": ""
         },
-        {
-          "title": "CSV",
-          "description": "Les fichiers CSV sont chargés tels quels : les colonnes du fichier deviennent les colonnes du jeu de données, sans configuration supplémentaire.",
-          "properties": {
-            "format": {
-              "type": "string",
-              "const": "csv",
-              "title": "Format des fichiers sources"
-            }
-          }
+        "block": { "$ref": "#/definitions/block" },
+        "separator": {
+          "type": "string",
+          "title": "Séparateur pour les tableaux",
+          "default": ";"
         }
-      ]
+      }
     }
   ],
   "definitions": {

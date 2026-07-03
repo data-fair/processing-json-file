@@ -71,7 +71,7 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
             throw new Error(`protocole non supporté "${url.protocol}"`)
           }
         } catch (err: any) {
-          if (err instanceof FileNotFoundError && processingConfig.processAndDelete) {
+          if (err instanceof FileNotFoundError && (processingConfig.processAndDelete || processingConfig.processAndMove)) {
             await log.warning(`Fichier non trouvé (${file}), exécution ignorée`)
             return { deleteOnComplete: true }
           }
@@ -94,14 +94,14 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
           data = data.concat(convert(JSON.parse(content), processingConfig))
         }
 
-        if (processingConfig.processAndDelete) {
-          if (processingConfig.moveInsteadOfDelete) {
-            if (multiple) await log.info(`Déplacement de "${file}" vers le dossier de sauvegarde sur le serveur`)
-            await moveRemoteFile(processingConfig, url.pathname, sftp ?? ftp)
-          } else {
-            if (multiple) await log.info(`Suppression de "${file}" sur le serveur`)
-            await deleteRemoteFile(processingConfig, url.pathname, sftp ?? ftp)
-          }
+        // move takes precedence over delete: "Déplacer" is framed as an
+        // alternative to "Supprimer", so when both are checked we keep a backup
+        if (processingConfig.processAndMove) {
+          if (multiple) await log.info(`Déplacement de "${file}" vers le dossier de sauvegarde sur le serveur`)
+          await moveRemoteFile(processingConfig, url.pathname, sftp ?? ftp)
+        } else if (processingConfig.processAndDelete) {
+          if (multiple) await log.info(`Suppression de "${file}" sur le serveur`)
+          await deleteRemoteFile(processingConfig, url.pathname, sftp ?? ftp)
         }
 
         downloaded++
@@ -110,8 +110,8 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
         else await log.info(`Le fichier a été téléchargé (${file})`)
       }
 
-      if (processingConfig.processAndDelete) {
-        const action = processingConfig.moveInsteadOfDelete ? 'déplacé(s) vers le dossier de sauvegarde sur' : 'supprimé(s) du'
+      if (processingConfig.processAndMove || processingConfig.processAndDelete) {
+        const action = processingConfig.processAndMove ? 'déplacé(s) vers le dossier de sauvegarde sur' : 'supprimé(s) du'
         await log.info(multiple ? `${files.length} fichiers source ${action} serveur` : `Fichier source ${action} serveur`)
       }
     }

@@ -20,7 +20,7 @@ A plugin that creates and updates a data-fair dataset from one or more remote JS
 | `username` / `password` | Optional credentials for the remote (HTTP basic auth, SFTP or FTP). |
 | `drop` | Whether to drop the existing lines before loading. |
 | `processAndDelete` | Delete each source file on the remote once it has been imported (FTP/SFTP only). |
-| `moveInsteadOfDelete` | Requires `processAndDelete`. Moves the source file(s) to a `backup` folder instead of deleting them — next to the file for a single-file URL, or inside the imported folder for a folder URL. |
+| `processAndMove` | Move each source file to a `backup` folder after import instead of deleting it — next to the file for a single-file URL, or inside the imported folder for a folder URL. Independent checkbox; takes precedence over `processAndDelete` when both are set (FTP/SFTP only). |
 | `format` | `json` (default) or `csv`. JSON files go through the path mapping below; CSV files are loaded as-is, with their delimiter auto-detected (all CSV files of a run must share the same delimiter). |
 
 ## Release
