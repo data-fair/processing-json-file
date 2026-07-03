@@ -1,7 +1,7 @@
 {
   "type": "object",
   "x-display": "tabs",
-  "required": ["dataset", "url"],
+  "required": ["dataset", "url", "format"],
   "allOf": [
     {
       "title": "Jeu de données",
@@ -21,6 +21,7 @@
         "drop": {
           "type": "boolean",
           "title": "Supprimer les données avant import",
+          "description": "Supprime toutes les lignes du jeu de données éditable avant d'y importer les nouvelles. Si décoché, les lignes seront ajoutées à la suite / éditées selon la clé primaire du jeu de données.",
           "default": false
         }
       }
@@ -31,7 +32,7 @@
         "url": {
           "title": "URL source",
           "type": "string",
-          "description": "Les protocoles supportés sont HTTP, HTTPS, FTP et SFTP.\n\n- **URL vers un dossier** (se terminant par `/`) : importe tous les fichiers `.json` du dossier (extension insensible à la casse, `.json` comme `.JSON`).\n- **URL vers un fichier** (se terminant par `.json`) : importe ce fichier uniquement.\n\nSi l'URL ne se termine ni par `/` ni par `.json`, le comportement par défaut tente de télécharger un fichier unique."
+          "description": "Les protocoles supportés sont HTTP, HTTPS, FTP et SFTP.\n\n- **URL vers un dossier** (se terminant par `/`) : importe tous les fichiers correspondant au format choisi (onglet « Champs à récupérer ») dans le dossier (extension insensible à la casse, `.json` comme `.JSON`, `.csv` comme `.CSV`).\n- **URL vers un fichier** (se terminant par `.json` ou `.csv` selon le format choisi) : importe ce fichier uniquement.\n\nSi l'URL ne se termine ni par `/` ni par l'extension attendue, le comportement par défaut tente de télécharger un fichier unique."
         },
         "username": {
           "title": "Utilisateur",
@@ -55,26 +56,59 @@
         "processAndDelete": {
           "type": "boolean",
           "title": "Supprimer le(s) fichier(s) source après import (FTP/SFTP uniquement)",
-          "description": "Disponible uniquement pour les sources FTP et SFTP.\n\n- Après un import réussi, chaque fichier source téléchargé est supprimé du serveur distant.\n- Si aucun fichier n'est trouvé sur le serveur, l'exécution est ignorée : elle se termine sans erreur et n'apparaît pas dans la liste des exécutions."
+          "description": "Disponible uniquement pour les sources FTP et SFTP.\n\n- Après un import réussi, chaque fichier source téléchargé est supprimé du serveur distant (ou déplacé, voir l'option « Déplacer au lieu de supprimer »).\n- Si aucun fichier n'est trouvé sur le serveur, l'exécution est ignorée : elle se termine sans erreur et n'apparaît pas dans la liste des exécutions."
+        }
+      },
+      "dependencies": {
+        "processAndDelete": {
+          "properties": {
+            "moveInsteadOfDelete": {
+              "type": "boolean",
+              "title": "Déplacer au lieu de supprimer",
+              "description": "Au lieu de supprimer le(s) fichier(s) source après import, les déplace dans un sous-dossier `backup` : créé à côté du fichier si l'URL source pointe vers un fichier unique, ou à l'intérieur du dossier importé si l'URL source pointe vers un dossier."
+            }
+          }
         }
       }
     },
     {
       "title": "Champs à récupérer",
-      "properties": {
-        "resultsPath": {
-          "type": "string",
-          "title": "Chemin des résultats",
-          "description": "Chemin d'accès du tableau de résultats dans le json",
-          "default": ""
+      "oneOf": [
+        {
+          "title": "JSON",
+          "properties": {
+            "format": {
+              "type": "string",
+              "const": "json",
+              "title": "Format des fichiers sources",
+              "default": "json"
+            },
+            "resultsPath": {
+              "type": "string",
+              "title": "Chemin des résultats",
+              "description": "Chemin d'accès du tableau de résultats dans le json",
+              "default": ""
+            },
+            "block": { "$ref": "#/definitions/block" },
+            "separator": {
+              "type": "string",
+              "title": "Séparateur pour les tableaux",
+              "default": ";"
+            }
+          }
         },
-        "block": { "$ref": "#/definitions/block" },
-        "separator": {
-          "type": "string",
-          "title": "Séparateur pour les tableaux",
-          "default": ";"
+        {
+          "title": "CSV",
+          "description": "Les fichiers CSV sont chargés tels quels : les colonnes du fichier deviennent les colonnes du jeu de données, sans configuration supplémentaire.",
+          "properties": {
+            "format": {
+              "type": "string",
+              "const": "csv",
+              "title": "Format des fichiers sources"
+            }
+          }
         }
-      }
+      ]
     }
   ],
   "definitions": {

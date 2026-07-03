@@ -1,7 +1,8 @@
 import fs from 'fs-extra'
 import path from 'path'
-import { fetchHTTP, fetchSFTP, fetchFTP, listFiles, FileNotFoundError, deleteRemoteFile, connectSFTP, connectFTP } from './lib/fetch.ts'
+import { fetchHTTP, fetchSFTP, fetchFTP, listFiles, FileNotFoundError, deleteRemoteFile, moveRemoteFile, connectSFTP, connectFTP } from './lib/fetch.ts'
 import { convert } from './lib/convert.ts'
+import { parseCSV, checkConsistentDelimiters } from './lib/parseCsv.ts'
 import type { ProcessingContext } from '@data-fair/lib-common-types/processings.js'
 
 export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingContext) => {
@@ -10,6 +11,10 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
   const dataset = (await axios.get(`api/v1/datasets/${processingConfig.dataset.id}`)).data
   if (!dataset) throw new Error(`Le jeu de données n'existe pas, id=${processingConfig.dataset.id}`)
   await log.info(`Le jeu de données existe, id="${dataset.id}", title="${dataset.title}"`)
+
+  // les configurations enregistrées avant l'ajout du support CSV n'ont pas ce champ, elles doivent rester en JSON
+  const format = processingConfig.format === 'csv' ? 'csv' : 'json'
+  const extension = format === 'csv' ? '.csv' : '.json'
 
   const protocol = new URL(processingConfig.url).protocol
   // open a single connection reused for listing, every download and every
@@ -22,19 +27,19 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
     let files = []
     const filePath = decodeURIComponent(path.parse(processingConfig.url).base)
     const baseUrl = decodeURIComponent(path.parse(processingConfig.url).dir)
-    if (processingConfig.url.toLowerCase().endsWith('.json')) {
+    if (processingConfig.url.toLowerCase().endsWith(extension)) {
       files = [filePath]
     } else if (processingConfig.url.endsWith('/')) {
       const remoteFiles = await listFiles(processingConfig, sftp)
-      files = remoteFiles.map(f => filePath + '/' + f.name).filter(f => f.toLowerCase().endsWith('.json'))
+      files = remoteFiles.map(f => filePath + '/' + f.name).filter(f => f.toLowerCase().endsWith(extension))
     } else {
       files = [filePath]
-      await log.warning('Chemin suspect, il devrait se terminer par \'/\' ou \'.json\'')
+      await log.warning(`Chemin suspect, il devrait se terminer par '/' ou '${extension}'`)
     }
 
     const multiple = files.length > 1
     if (files.length === 0) {
-      await log.warning('Aucun fichier .json à télécharger')
+      await log.warning(`Aucun fichier ${extension} à télécharger`)
     } else if (multiple) {
       await log.info(`${files.length} fichiers à télécharger`)
     } else {
@@ -47,6 +52,7 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
       if (multiple) await log.task(downloadStep)
 
       let downloaded = 0
+      const csvDelimiters: { file: string, delimiter: string }[] = []
       for (const file of files) {
         if (multiple) await log.info(`Téléchargement de "${file}"`)
         const tmpFile = path.join(tmpDir, file)
@@ -70,7 +76,7 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
             return { deleteOnComplete: true }
           }
           // message clair pour l'utilisateur, détail technique du serveur distant en extra (superadmins)
-          await log.info(`Échec du téléchargement de "${file}" depuis ${url.host}, vérifiez l'URL source (elle doit pointer vers un fichier .json ou un dossier se terminant par "/")`, { url: url.href, message: err.message, stack: err.stack })
+          await log.info(`Échec du téléchargement de "${file}" depuis ${url.host}, vérifiez l'URL source (elle doit pointer vers un fichier ${extension} ou un dossier se terminant par "/")`, { url: url.href, message: err.message, stack: err.stack })
           throw new Error(`Échec du téléchargement de "${file}"`)
         }
 
@@ -78,12 +84,24 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
         const fd = await fs.open(tmpFile, 'r')
         await fs.fsync(fd)
         await fs.close(fd)
-        const json = JSON.parse(await fs.readFile(tmpFile, 'utf8'))
-        data = data.concat(convert(json, processingConfig))
+        const content = await fs.readFile(tmpFile, 'utf8')
+        if (format === 'csv') {
+          const { delimiter, rows } = parseCSV(content)
+          csvDelimiters.push({ file, delimiter })
+          checkConsistentDelimiters(csvDelimiters)
+          data = data.concat(rows)
+        } else {
+          data = data.concat(convert(JSON.parse(content), processingConfig))
+        }
 
         if (processingConfig.processAndDelete) {
-          if (multiple) await log.info(`Suppression de "${file}" sur le serveur`)
-          await deleteRemoteFile(processingConfig, file, sftp ?? ftp)
+          if (processingConfig.moveInsteadOfDelete) {
+            if (multiple) await log.info(`Déplacement de "${file}" vers le dossier de sauvegarde sur le serveur`)
+            await moveRemoteFile(processingConfig, url.pathname, sftp ?? ftp)
+          } else {
+            if (multiple) await log.info(`Suppression de "${file}" sur le serveur`)
+            await deleteRemoteFile(processingConfig, url.pathname, sftp ?? ftp)
+          }
         }
 
         downloaded++
@@ -93,7 +111,8 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
       }
 
       if (processingConfig.processAndDelete) {
-        await log.info(multiple ? `${files.length} fichiers source supprimés du serveur` : 'Fichier source supprimé du serveur')
+        const action = processingConfig.moveInsteadOfDelete ? 'déplacé(s) vers le dossier de sauvegarde sur' : 'supprimé(s) du'
+        await log.info(multiple ? `${files.length} fichiers source ${action} serveur` : `Fichier source ${action} serveur`)
       }
     }
   } finally {

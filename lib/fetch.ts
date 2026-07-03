@@ -112,9 +112,8 @@ export const listFiles = async (processingConfig: any, sftpClient?: SFTPClient) 
   }
 }
 
-export const deleteRemoteFile = async (processingConfig: any, filePath: string, client?: any) => {
+export const deleteRemoteFile = async (processingConfig: any, remotePath: string, client?: any) => {
   const url = new URL(processingConfig.url)
-  const remotePath = new URL(filePath, processingConfig.url).pathname
 
   if (url.protocol === 'sftp:') {
     const sftp: SFTPClient = client ?? await connectSFTP(processingConfig)
@@ -129,6 +128,40 @@ export const deleteRemoteFile = async (processingConfig: any, filePath: string, 
       // promisify into a local to avoid mutating (and double-wrapping) a reused client
       const del = promisify(ftp.delete.bind(ftp))
       await del(remotePath)
+    } finally {
+      if (!client) ftp.end()
+    }
+  }
+}
+
+// a single downloaded file gets a "backup" folder next to it; every file of an
+// imported folder shares one "backup" folder inside that same imported folder
+export const computeBackupPath = (remotePath: string): string => {
+  const dir = path.posix.dirname(remotePath)
+  const base = path.posix.basename(remotePath)
+  return path.posix.join(dir, 'backup', base)
+}
+
+export const moveRemoteFile = async (processingConfig: any, remotePath: string, client?: any) => {
+  const url = new URL(processingConfig.url)
+  const backupPath = computeBackupPath(remotePath)
+  const backupDir = path.posix.dirname(backupPath)
+
+  if (url.protocol === 'sftp:') {
+    const sftp: SFTPClient = client ?? await connectSFTP(processingConfig)
+    try {
+      await sftp.mkdir(backupDir, true)
+      await sftp.rename(remotePath, backupPath)
+    } finally {
+      if (!client) await sftp.end()
+    }
+  } else if (url.protocol === 'ftp:' || url.protocol === 'ftps:') {
+    const ftp = client ?? await connectFTP(processingConfig)
+    try {
+      const mkdir = promisify(ftp.mkdir.bind(ftp)) as (path: string, recursive: boolean) => Promise<void>
+      const rename = promisify(ftp.rename.bind(ftp)) as (from: string, to: string) => Promise<void>
+      await mkdir(backupDir, true)
+      await rename(remotePath, backupPath)
     } finally {
       if (!client) ftp.end()
     }
