@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'assert'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { detectDelimiter, splitCsvContent, checkConsistentDelimiters, checkConsistentHeaders } from '../lib/parseCsv.ts'
+import { detectDelimiter, splitCsvContent, checkCsvConsistency } from '../lib/parseCsv.ts'
 
 const exampleCsvPath = fileURLToPath(new URL('./resources/example.csv', import.meta.url))
 
@@ -47,40 +47,25 @@ describe('splitCsvContent', () => {
   })
 })
 
-describe('checkConsistentHeaders', () => {
-  it('does not throw when every file shares the same header', () => {
-    assert.doesNotThrow(() => checkConsistentHeaders([
-      { file: 'a.csv', header: 'name,age' },
-      { file: 'b.csv', header: 'name,age' }
-    ]))
-  })
+describe('checkCsvConsistency', () => {
+  const reference = { file: 'a.csv', header: 'name,age', delimiter: ',' }
 
-  it('throws a clear error when files have different headers', () => {
-    assert.throws(
-      () => checkConsistentHeaders([
-        { file: 'a.csv', header: 'name,age' },
-        { file: 'b.csv', header: 'name,city' }
-      ]),
-      /a\.csv.*b\.csv/
+  it('returns null when the candidate matches the reference', () => {
+    assert.equal(
+      checkCsvConsistency({ file: 'b.csv', header: 'name,age', delimiter: ',' }, reference),
+      null
     )
   })
-})
 
-describe('checkConsistentDelimiters', () => {
-  it('does not throw when every file uses the same delimiter', () => {
-    assert.doesNotThrow(() => checkConsistentDelimiters([
-      { file: 'a.csv', delimiter: ',' },
-      { file: 'b.csv', delimiter: ',' }
-    ]))
+  it('returns a clear delimiter message when delimiters differ', () => {
+    const message = checkCsvConsistency({ file: 'b.csv', header: 'name;age', delimiter: ';' }, reference)
+    assert.match(String(message), /[Ss]éparateur/)
+    assert.match(String(message), /a\.csv.*,.*b\.csv.*;/)
   })
 
-  it('throws a clear error when files use different delimiters', () => {
-    assert.throws(
-      () => checkConsistentDelimiters([
-        { file: 'a.csv', delimiter: ',' },
-        { file: 'b.csv', delimiter: ';' }
-      ]),
-      /a\.csv.*,.*b\.csv.*;/
-    )
+  it('returns a clear header message when only the headers differ', () => {
+    const message = checkCsvConsistency({ file: 'b.csv', header: 'name,city', delimiter: ',' }, reference)
+    assert.match(String(message), /[Ee]n-tête/)
+    assert.match(String(message), /a\.csv.*b\.csv/)
   })
 })

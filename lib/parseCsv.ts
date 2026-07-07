@@ -25,20 +25,19 @@ export const splitCsvContent = (content: string): { header: string, body: string
   }
 }
 
-export const checkConsistentDelimiters = (files: { file: string, delimiter: string }[]): void => {
-  const reference = files[0]
-  for (const f of files) {
-    if (f.delimiter !== reference.delimiter) {
-      throw new Error(`Séparateurs CSV incohérents entre les fichiers : "${reference.file}" utilise "${reference.delimiter}" alors que "${f.file}" utilise "${f.delimiter}"`)
-    }
-  }
-}
+export interface CsvSignature { file: string, header: string, delimiter: string }
 
-export const checkConsistentHeaders = (files: { file: string, header: string }[]): void => {
-  const reference = files[0]
-  for (const f of files) {
-    if (f.header !== reference.header) {
-      throw new Error(`En-têtes CSV incohérents entre les fichiers : "${reference.file}" n'a pas les mêmes colonnes que "${f.file}" (les fichiers d'un même dossier doivent partager les mêmes colonnes, dans le même ordre)`)
-    }
+// Compare a candidate CSV file to the reference file (the first successfully
+// parsed file of the folder). Returns a clear, user-facing message when the
+// candidate is inconsistent (so the caller can warn and skip just that file),
+// or null when it is consistent. Delimiter mismatch is reported before header
+// mismatch since a wrong delimiter also makes the header look different.
+export const checkCsvConsistency = (candidate: CsvSignature, reference: CsvSignature): string | null => {
+  if (candidate.delimiter !== reference.delimiter) {
+    return `Séparateurs CSV incohérents entre les fichiers : "${reference.file}" utilise "${reference.delimiter}" alors que "${candidate.file}" utilise "${candidate.delimiter}"`
   }
+  if (candidate.header !== reference.header) {
+    return `En-têtes CSV incohérents entre les fichiers : "${reference.file}" n'a pas les mêmes colonnes que "${candidate.file}" (les fichiers d'un même dossier doivent partager les mêmes colonnes, dans le même ordre)`
+  }
+  return null
 }
