@@ -50,7 +50,6 @@
   "dependencies": {
     "@tootallnate/once": "^3.0.0",
     "axios": "^1.7.9",
-    "csv-parse": "^7.0.1",
     "fs-extra": "^11.3.0",
     "ftp": "^0.3.10",
     "pump": "^3.0.3",

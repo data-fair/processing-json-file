@@ -32,7 +32,8 @@
         "url": {
           "title": "URL source",
           "type": "string",
-          "description": "Les protocoles supportés sont HTTP, HTTPS, FTP et SFTP.\n\n- **URL vers un dossier** (se terminant par `/`) : importe tous les fichiers correspondant au format choisi (onglet « Champs à récupérer ») dans le dossier (extension insensible à la casse, `.json` comme `.JSON`, `.csv` comme `.CSV`).\n- **URL vers un fichier** (se terminant par `.json` ou `.csv` selon le format choisi) : importe ce fichier uniquement.\n\nSi l'URL ne se termine ni par `/` ni par l'extension attendue, le comportement par défaut tente de télécharger un fichier unique."
+          "pattern": "^(https?|s?ftp|ftps)://",
+          "description": "L'URL doit commencer par `http://`, `https://`, `ftp://`, `ftps://` ou `sftp://`.\n\n- **URL vers un dossier** (se terminant par `/`) : importe tous les fichiers correspondant au format choisi (onglet « Champs à récupérer ») dans le dossier (extension insensible à la casse, `.json` comme `.JSON`, `.csv` comme `.CSV`).\n- **URL vers un fichier** (se terminant par `.json` ou `.csv` selon le format choisi) : importe ce fichier uniquement.\n\nSi l'URL ne se termine ni par `/` ni par l'extension attendue, le comportement par défaut tente de télécharger un fichier unique."
         },
         "username": {
           "title": "Utilisateur",
@@ -62,15 +63,27 @@
             { "const": "csv", "title": "CSV" }
           ]
         },
-        "processAndDelete": {
-          "type": "boolean",
-          "title": "Supprimer le(s) fichier(s) source après import (FTP/SFTP uniquement)",
-          "description": "Disponible uniquement pour les sources FTP et SFTP.\n\n- Après un import réussi, chaque fichier source téléchargé est supprimé du serveur distant (ou déplacé, voir l'option « Déplacer au lieu de supprimer »).\n- Si aucun fichier n'est trouvé sur le serveur, l'exécution est ignorée : elle se termine sans erreur et n'apparaît pas dans la liste des exécutions."
+        "sourceAction": {
+          "type": "string",
+          "title": "Action sur les fichiers sources après import",
+          "description": "Que faire des fichiers sur le serveur distant une fois qu'ils ont été importés avec succès.\n\n- **Ne rien faire** : les fichiers sont laissés tels quels sur le serveur.\n- **Supprimer** : chaque fichier importé est supprimé du serveur distant.\n- **Déplacer** : chaque fichier importé est déplacé dans le dossier d'archive configuré ci-dessous, ce qui permet d'en conserver une copie hors de son emplacement d'origine.\n\nEn mode « Supprimer » ou « Déplacer », si aucun fichier n'est trouvé sur le serveur, l'exécution est ignorée : elle se termine sans erreur et n'apparaît pas dans la liste des exécutions.",
+          "default": "none",
+          "layout": {
+            "if": "parent.data.url && (parent.data.url.toLowerCase().startsWith('ftp') || parent.data.url.toLowerCase().startsWith('sftp'))"
+          },
+          "oneOf": [
+            { "const": "delete", "title": "Supprimer" },
+            { "const": "move", "title": "Déplacer" },
+            { "const": "none", "title": "Ne rien faire" }
+          ]
         },
-        "processAndMove": {
-          "type": "boolean",
-          "title": "Déplacer le(s) fichier(s) source après import (FTP/SFTP uniquement)",
-          "description": "Au lieu de supprimer le(s) fichier(s) source après import, ils sont déplacés dans un sous-dossier `backup`.\n\n- Si l'URL source pointe vers un fichier unique, le dossier `backup` est créé à côté de ce fichier.\n- Si l'URL source pointe vers un dossier, le dossier `backup` est créé à l'intérieur de ce dossier.\n\nCela permet de conserver une copie des fichiers importés sans les laisser sur le serveur distant à leur emplacement d'origine."
+        "backupDir": {
+          "type": "string",
+          "title": "Dossier d'archive (chemin absolu sur le serveur)",
+          "description": "Chemin absolu du dossier où déplacer les fichiers sources après import (par exemple `/archives/mon-jeu-de-donnees`).\n\n- Le dossier est créé automatiquement s'il n'existe pas.\n- Si un fichier du même nom existe déjà dans le dossier d'archive, il est écrasé lors du déplacement.\n- Laissé vide, les fichiers sont déplacés dans un sous-dossier `backup` créé à côté du fichier (ou à l'intérieur du dossier importé).",
+          "layout": {
+            "if": "parent.data.sourceAction === 'move'"
+          }
         }
       }
     },

@@ -134,23 +134,33 @@ export const deleteRemoteFile = async (processingConfig: any, remotePath: string
   }
 }
 
-// a single downloaded file gets a "backup" folder next to it; every file of an
-// imported folder shares one "backup" folder inside that same imported folder
-export const computeBackupPath = (remotePath: string): string => {
-  const dir = path.posix.dirname(remotePath)
+// Where a moved source file lands. With a configured backup directory, every
+// file goes into that single absolute folder. Without one (default / legacy
+// configs), a single downloaded file gets a "backup" folder next to it and every
+// file of an imported folder shares one "backup" folder inside that same folder.
+export const computeBackupPath = (remotePath: string, backupDir?: string): string => {
   const base = path.posix.basename(remotePath)
-  return path.posix.join(dir, 'backup', base)
+  if (backupDir && backupDir.trim()) {
+    let dir = backupDir.trim()
+    // tolerate a full URL (sftp://host/path) as well as a plain server path
+    if (dir.includes('://')) dir = decodeURIComponent(new URL(dir).pathname)
+    return path.posix.join(dir, base)
+  }
+  const sourceDir = path.posix.dirname(remotePath)
+  return path.posix.join(sourceDir, 'backup', base)
 }
 
 export const moveRemoteFile = async (processingConfig: any, remotePath: string, client?: any) => {
   const url = new URL(processingConfig.url)
-  const backupPath = computeBackupPath(remotePath)
+  const backupPath = computeBackupPath(remotePath, processingConfig.backupDir)
   const backupDir = path.posix.dirname(backupPath)
 
   if (url.protocol === 'sftp:') {
     const sftp: SFTPClient = client ?? await connectSFTP(processingConfig)
     try {
       await sftp.mkdir(backupDir, true)
+      // rename fails if the destination exists, so drop any same-named backup first
+      await sftp.delete(backupPath).catch(() => {})
       await sftp.rename(remotePath, backupPath)
     } finally {
       if (!client) await sftp.end()
@@ -160,7 +170,10 @@ export const moveRemoteFile = async (processingConfig: any, remotePath: string, 
     try {
       const mkdir = promisify(ftp.mkdir.bind(ftp)) as (path: string, recursive: boolean) => Promise<void>
       const rename = promisify(ftp.rename.bind(ftp)) as (from: string, to: string) => Promise<void>
+      const del = promisify(ftp.delete.bind(ftp)) as (path: string) => Promise<void>
       await mkdir(backupDir, true)
+      // overwrite any same-named backup so the move never fails on a collision
+      await del(backupPath).catch(() => {})
       await rename(remotePath, backupPath)
     } finally {
       if (!client) ftp.end()

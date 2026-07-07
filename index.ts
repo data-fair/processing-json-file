@@ -2,7 +2,7 @@ import fs from 'fs-extra'
 import path from 'path'
 import { fetchHTTP, fetchSFTP, fetchFTP, listFiles, FileNotFoundError, deleteRemoteFile, moveRemoteFile, connectSFTP, connectFTP } from './lib/fetch.ts'
 import { convert } from './lib/convert.ts'
-import { parseCSV, checkConsistentDelimiters } from './lib/parseCsv.ts'
+import { detectDelimiter, splitCsvContent, checkConsistentDelimiters, checkConsistentHeaders } from './lib/parseCsv.ts'
 import type { ProcessingContext } from '@data-fair/lib-common-types/processings.js'
 
 export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingContext) => {
@@ -16,13 +16,26 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
   const format = processingConfig.format === 'csv' ? 'csv' : 'json'
   const extension = format === 'csv' ? '.csv' : '.json'
 
+  // action sur les fichiers sources après import (FTP/SFTP)
+  // rétrocompatibilité : les anciennes configs utilisaient deux booléens
+  // processAndMove / processAndDelete au lieu du sélecteur sourceAction
+  const sourceAction: 'none' | 'delete' | 'move' = processingConfig.sourceAction ??
+    (processingConfig.processAndMove ? 'move' : processingConfig.processAndDelete ? 'delete' : 'none')
+  const processAndMove = sourceAction === 'move'
+  const processAndDelete = sourceAction === 'delete'
+
   const protocol = new URL(processingConfig.url).protocol
   // open a single connection reused for listing, every download and every
   // deletion, instead of reconnecting once per file
   const sftp = protocol === 'sftp:' ? await connectSFTP(processingConfig) : undefined
   const ftp = (protocol === 'ftp:' || protocol === 'ftps:') ? await connectFTP(processingConfig) : undefined
 
+  // JSON : tableau d'objets déjà mappé via la configuration, poussé en application/json
+  // CSV : on ne parse pas localement, on ré-assemble le texte CSV et on laisse
+  // data-fair mapper les en-têtes vers les clés de colonnes lors du push (text/csv)
   let data: any[] = []
+  let csvPayload = ''
+  let csvDelimiter = ','
   try {
     let files = []
     const filePath = decodeURIComponent(path.parse(processingConfig.url).base)
@@ -52,7 +65,7 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
       if (multiple) await log.task(downloadStep)
 
       let downloaded = 0
-      const csvDelimiters: { file: string, delimiter: string }[] = []
+      const csvFiles: { file: string, header: string, delimiter: string }[] = []
       for (const file of files) {
         if (multiple) await log.info(`Téléchargement de "${file}"`)
         const tmpFile = path.join(tmpDir, file)
@@ -71,7 +84,7 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
             throw new Error(`protocole non supporté "${url.protocol}"`)
           }
         } catch (err: any) {
-          if (err instanceof FileNotFoundError && (processingConfig.processAndDelete || processingConfig.processAndMove)) {
+          if (err instanceof FileNotFoundError && (processAndDelete || processAndMove)) {
             await log.warning(`Fichier non trouvé (${file}), exécution ignorée`)
             return { deleteOnComplete: true }
           }
@@ -86,20 +99,28 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
         await fs.close(fd)
         const content = await fs.readFile(tmpFile, 'utf8')
         if (format === 'csv') {
-          const { delimiter, rows } = parseCSV(content)
-          csvDelimiters.push({ file, delimiter })
-          checkConsistentDelimiters(csvDelimiters)
-          data = data.concat(rows)
+          // ré-assemblage du texte CSV : en-tête du premier fichier puis les
+          // lignes de données de tous les fichiers (les fichiers d'un dossier
+          // doivent partager les mêmes colonnes, dans le même ordre)
+          const { header, body } = splitCsvContent(content)
+          const delimiter = detectDelimiter(header)
+          csvFiles.push({ file, header, delimiter })
+          checkConsistentDelimiters(csvFiles)
+          checkConsistentHeaders(csvFiles)
+          if (csvPayload === '') {
+            csvDelimiter = delimiter
+            csvPayload = header
+          }
+          if (body !== '') csvPayload += '\n' + body
         } else {
           data = data.concat(convert(JSON.parse(content), processingConfig))
         }
 
-        // move takes precedence over delete: "Déplacer" is framed as an
-        // alternative to "Supprimer", so when both are checked we keep a backup
-        if (processingConfig.processAndMove) {
+        // sourceAction : "move" et "delete" sont exclusifs (sélecteur), "none" ne fait rien
+        if (processAndMove) {
           if (multiple) await log.info(`Déplacement de "${file}" vers le dossier de sauvegarde sur le serveur`)
           await moveRemoteFile(processingConfig, url.pathname, sftp ?? ftp)
-        } else if (processingConfig.processAndDelete) {
+        } else if (processAndDelete) {
           if (multiple) await log.info(`Suppression de "${file}" sur le serveur`)
           await deleteRemoteFile(processingConfig, url.pathname, sftp ?? ftp)
         }
@@ -110,8 +131,8 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
         else await log.info(`Le fichier a été téléchargé (${file})`)
       }
 
-      if (processingConfig.processAndMove || processingConfig.processAndDelete) {
-        const action = processingConfig.processAndMove ? 'déplacé(s) vers le dossier de sauvegarde sur' : 'supprimé(s) du'
+      if (processAndMove || processAndDelete) {
+        const action = processAndMove ? 'déplacé(s) vers le dossier de sauvegarde sur' : 'supprimé(s) du'
         await log.info(multiple ? `${files.length} fichiers source ${action} serveur` : `Fichier source ${action} serveur`)
       }
     }
@@ -121,12 +142,24 @@ export const run = async ({ processingConfig, tmpDir, axios, log }: ProcessingCo
   }
 
   await log.step('Chargement des lignes')
+  // CSV : on envoie le texte brut (Content-Type text/csv) pour que data-fair
+  // normalise lui-même les en-têtes vers les clés de colonnes (escapeKey).
+  // JSON (et le cas "aucun fichier", tableau vide) : envoi du tableau d'objets,
+  // ce dernier conservant la sémantique du drop même sans nouveau fichier.
+  const bulkUrl = `api/v1/datasets/${processingConfig.dataset.id}/_bulk_lines?drop=${processingConfig.drop}`
   const resultBulk = (
-    await axios({
-      method: 'post',
-      url: `api/v1/datasets/${processingConfig.dataset.id}/_bulk_lines?drop=${processingConfig.drop}`,
-      data
-    })
+    format === 'csv' && csvPayload !== ''
+      ? await axios({
+        method: 'post',
+        url: `${bulkUrl}&sep=${encodeURIComponent(csvDelimiter)}`,
+        headers: { 'Content-Type': 'text/csv' },
+        data: csvPayload
+      })
+      : await axios({
+        method: 'post',
+        url: bulkUrl,
+        data
+      })
   ).data
 
   await log.info(`Lignes chargées: ${resultBulk.nbOk.toLocaleString()} ok, ${resultBulk.nbNotModified.toLocaleString()} sans modification, ${resultBulk.nbErrors.toLocaleString()} en erreur`)

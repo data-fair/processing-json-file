@@ -2,7 +2,7 @@ import { describe, it } from 'node:test'
 import assert from 'assert'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
-import { detectDelimiter, parseCSV, checkConsistentDelimiters } from '../lib/parseCsv.ts'
+import { detectDelimiter, splitCsvContent, checkConsistentDelimiters, checkConsistentHeaders } from '../lib/parseCsv.ts'
 
 const exampleCsvPath = fileURLToPath(new URL('./resources/example.csv', import.meta.url))
 
@@ -20,27 +20,49 @@ describe('detectDelimiter', () => {
   })
 })
 
-describe('parseCSV', () => {
-  it('parses a comma-separated file into row objects', () => {
-    const { delimiter, rows } = parseCSV('name,age\nAlice,30\nBob,25')
-    assert.equal(delimiter, ',')
-    assert.deepEqual(rows, [{ name: 'Alice', age: '30' }, { name: 'Bob', age: '25' }])
+describe('splitCsvContent', () => {
+  it('splits a header line from the data rows', () => {
+    assert.deepEqual(splitCsvContent('name,age\nAlice,30\nBob,25'), {
+      header: 'name,age',
+      body: 'Alice,30\nBob,25'
+    })
   })
 
-  it('parses a semicolon-separated file, respecting quoted values containing commas', () => {
-    const { delimiter, rows } = parseCSV('name;bio\n"Doe, John";"Loves CSV, really"')
-    assert.equal(delimiter, ';')
-    assert.deepEqual(rows, [{ name: 'Doe, John', bio: 'Loves CSV, really' }])
+  it('handles CRLF newlines and a leading BOM', () => {
+    assert.deepEqual(splitCsvContent('﻿name,age\r\nAlice,30'), {
+      header: 'name,age',
+      body: 'Alice,30'
+    })
   })
 
-  it('parses a real CSV file from disk, including its trailing newline', () => {
+  it('returns an empty body for a header-only file', () => {
+    assert.deepEqual(splitCsvContent('name,age'), { header: 'name,age', body: '' })
+  })
+
+  it('splits a real CSV file from disk, keeping its trailing newline in the body', () => {
     const content = fs.readFileSync(exampleCsvPath, 'utf8')
-    const { delimiter, rows } = parseCSV(content)
-    assert.equal(delimiter, ',')
-    assert.deepEqual(rows, [
-      { name: 'Alice', age: '30', city: 'Paris' },
-      { name: 'Bob', age: '25', city: 'Lyon' }
-    ])
+    const { header, body } = splitCsvContent(content)
+    assert.equal(header, 'name,age,city')
+    assert.equal(body, 'Alice,30,Paris\nBob,25,Lyon\n')
+  })
+})
+
+describe('checkConsistentHeaders', () => {
+  it('does not throw when every file shares the same header', () => {
+    assert.doesNotThrow(() => checkConsistentHeaders([
+      { file: 'a.csv', header: 'name,age' },
+      { file: 'b.csv', header: 'name,age' }
+    ]))
+  })
+
+  it('throws a clear error when files have different headers', () => {
+    assert.throws(
+      () => checkConsistentHeaders([
+        { file: 'a.csv', header: 'name,age' },
+        { file: 'b.csv', header: 'name,city' }
+      ]),
+      /a\.csv.*b\.csv/
+    )
   })
 })
 
