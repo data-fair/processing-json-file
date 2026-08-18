@@ -295,7 +295,7 @@ export const run = async ({ processingConfig, tmpDir, axios, log, patchConfig }:
       filePath: uploadPath,
       filename: uploadName,
       datasetId: datasetMode === 'update' ? processingConfig.dataset.id : undefined,
-      title: datasetMode === 'create' ? (processingConfig.dataset?.title || undefined) : undefined,
+      title: datasetMode === 'create' ? (processingConfig.datasetTitle || undefined) : undefined,
       // la query string de l'URL source peut porter un jeton d'accès, on ne la publie pas
       origin: stripQuery(processingConfig.url)
     })

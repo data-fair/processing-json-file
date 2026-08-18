@@ -1,12 +1,28 @@
 {
   "type": "object",
-  "x-display": "tabs",
+  "layout": "tabs",
   "required": ["url"],
   "allOf": [
     {
       "title": "Jeu de données",
       "default": { "datasetMode": "update" },
       "oneOf": [
+        {
+          "title": "Créer un jeu de données",
+          "required": ["datasetMode"],
+          "properties": {
+            "datasetMode": {
+              "type": "string",
+              "const": "create",
+              "title": "Action"
+            },
+            "datasetTitle": {
+              "type": "string",
+              "title": "Titre du jeu de données à créer (laissez vide pour utiliser le nom du fichier source)",
+              "description": "Un jeu de données **fichier** est créé : data-fair déduit lui-même les colonnes et leurs types à partir du fichier importé.\n\nUne fois la création effectuée, ce traitement bascule automatiquement en mode « Mettre à jour un jeu de données » sur le jeu créé : les exécutions suivantes le mettront à jour au lieu d'en créer un nouveau."
+            }
+          }
+        },
         {
           "title": "Mettre à jour un jeu de données",
           "required": ["dataset"],
@@ -20,10 +36,15 @@
               "type": "object",
               "title": "Jeu de données",
               "description": "Le type du jeu de données (fichier ou éditable) est détecté automatiquement à l'exécution.\n\n- **Jeu de données fichier** : le fichier importé remplace intégralement le fichier du jeu de données.\n- **Jeu de données éditable** : les lignes sont ajoutées / éditées selon la clé primaire, ou remplacent les données existantes si l'option ci-dessous est cochée.",
-              "x-fromUrl": "{context.dataFairUrl}/api/v1/datasets?q={q}&select=id,title&{context.ownerFilter}",
-              "x-itemsProp": "results",
-              "x-itemTitle": "title",
-              "x-itemKey": "id",
+              "layout": {
+                "getItems": {
+                  "url": "${context.dataFairUrl}/api/v1/datasets?select=id,title&${context.ownerFilter}&raw=true",
+                  "qSearchParam": "q",
+                  "itemsResults": "data.results",
+                  "itemTitle": "item.title",
+                  "itemKey": "item.id"
+                }
+              },
               "properties": {
                 "id": { "type": "string", "title": "Identifiant" },
                 "title": { "type": "string", "title": "Titre" }
@@ -34,28 +55,6 @@
               "title": "Supprimer les données avant import",
               "description": "Supprime toutes les lignes du jeu de données éditable avant d'y importer les nouvelles. Si décoché, les lignes seront ajoutées à la suite / éditées selon la clé primaire du jeu de données.\n\nSans effet sur un jeu de données fichier, dont le contenu est de toute façon intégralement remplacé.",
               "default": false
-            }
-          }
-        },
-        {
-          "title": "Créer un jeu de données",
-          "required": ["datasetMode"],
-          "properties": {
-            "datasetMode": {
-              "type": "string",
-              "const": "create",
-              "title": "Action"
-            },
-            "dataset": {
-              "type": "object",
-              "title": "Jeu de données à créer",
-              "description": "Un jeu de données **fichier** est créé : data-fair déduit lui-même les colonnes et leurs types à partir du fichier importé.\n\nUne fois la création effectuée, ce traitement bascule automatiquement en mode « Mettre à jour un jeu de données » sur le jeu créé : les exécutions suivantes le mettront à jour au lieu d'en créer un nouveau.",
-              "properties": {
-                "title": {
-                  "type": "string",
-                  "title": "Titre (laissez vide pour utiliser le nom du fichier source)"
-                }
-              }
             }
           }
         }
@@ -150,7 +149,7 @@
           "type": "array",
           "title": "Champs à récupérer",
           "description": "Les colonnes qui seront récupérées depuis ce niveau",
-          "x-itemTitle": "key",
+          "layout": { "itemTitle": "item.key" },
           "items": {
             "type": "object",
             "required": ["key", "path"],
