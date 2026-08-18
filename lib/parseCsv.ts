@@ -1,3 +1,5 @@
+import slugify from 'slugify'
+
 const CANDIDATE_DELIMITERS = [',', ';', '\t']
 
 export const detectDelimiter = (headerLine: string): string => {
@@ -21,7 +23,10 @@ export const splitCsvContent = (content: string): { header: string, body: string
   if (nlIndex === -1) return { header: clean, body: '' }
   return {
     header: clean.slice(0, nlIndex),
-    body: clean.slice(nlIndex).replace(/^\r?\n/, '')
+    // trailing newlines are dropped: concatenating several files appends
+    // '\n' + body, so a body keeping its own final newline would insert a
+    // blank line between each pair of files
+    body: clean.slice(nlIndex).replace(/^\r?\n/, '').replace(/(\r?\n)+$/, '')
   }
 }
 
@@ -40,4 +45,22 @@ export const checkCsvConsistency = (candidate: CsvSignature, reference: CsvSigna
     return `En-têtes CSV incohérents entre les fichiers : "${reference.file}" n'a pas les mêmes colonnes que "${candidate.file}" (les fichiers d'un même dossier doivent partager les mêmes colonnes, dans le même ordre)`
   }
   return null
+}
+
+// data-fair turns a CSV header into a dataset column key with
+// slug(header, { lower: true, strict: true, replacement: '_' })
+// see escapeKey in data-fair api/src/datasets/utils/operations.ts
+export const escapeKey = (header: string): string => slugify(header, { lower: true, strict: true, replacement: '_' })
+
+// Columns of a CSV header that match no property of an editable dataset schema.
+// Pushing them makes data-fair reject the whole request with "400 Colonnes
+// inconnues", so we warn beforehand with the key it expects for each of them.
+// The header is split naively on the delimiter: a column name containing the
+// delimiter between quotes would be mis-read, which only degrades the warning.
+export const missingColumns = (header: string, delimiter: string, schema: { key?: string, 'x-originalName'?: string }[]): { name: string, key: string }[] => {
+  return header.split(delimiter)
+    .map(name => name.trim().replace(/^"(.*)"$/, '$1'))
+    .filter(name => name !== '')
+    .map(name => ({ name, key: escapeKey(name) }))
+    .filter(({ name, key }) => !schema.some(prop => prop['x-originalName'] === name || prop.key === name || prop.key === key))
 }

@@ -1,7 +1,7 @@
 {
   "name": "@data-fair/processing-json-file",
   "version": "0.4.0",
-  "description": "Create datasets from one or more remote JSON or CSV files (HTTP, SFTP, FTP).",
+  "description": "Create and update datasets from one or more remote JSON or CSV files, or a zip archive of them (HTTP, SFTP, FTP).",
   "main": "index.ts",
   "type": "module",
   "scripts": {
@@ -50,9 +50,11 @@
   "dependencies": {
     "@tootallnate/once": "^3.0.0",
     "axios": "^1.7.9",
+    "form-data": "^4.0.6",
     "fs-extra": "^11.3.0",
     "ftp": "^0.3.10",
     "pump": "^3.0.3",
+    "slugify": "^1.6.9",
     "ssh2-sftp-client": "^12.0.1"
   }
 }

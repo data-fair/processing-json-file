@@ -1,30 +1,65 @@
 {
   "type": "object",
   "x-display": "tabs",
-  "required": ["dataset", "url"],
+  "required": ["url"],
   "allOf": [
     {
       "title": "Jeu de données",
-      "properties": {
-        "dataset": {
-          "type": "object",
-          "title": "Jeu de données (éditable uniquement)",
-          "x-fromUrl": "{context.dataFairUrl}/api/v1/datasets?q={q}&select=id,title&rest=true&{context.ownerFilter}",
-          "x-itemsProp": "results",
-          "x-itemTitle": "title",
-          "x-itemKey": "id",
+      "default": { "datasetMode": "update" },
+      "oneOf": [
+        {
+          "title": "Mettre à jour un jeu de données",
+          "required": ["dataset"],
           "properties": {
-            "id": { "type": "string", "title": "Identifiant" },
-            "title": { "type": "string", "title": "Titre" }
+            "datasetMode": {
+              "type": "string",
+              "const": "update",
+              "title": "Action"
+            },
+            "dataset": {
+              "type": "object",
+              "title": "Jeu de données",
+              "description": "Le type du jeu de données (fichier ou éditable) est détecté automatiquement à l'exécution.\n\n- **Jeu de données fichier** : le fichier importé remplace intégralement le fichier du jeu de données.\n- **Jeu de données éditable** : les lignes sont ajoutées / éditées selon la clé primaire, ou remplacent les données existantes si l'option ci-dessous est cochée.",
+              "x-fromUrl": "{context.dataFairUrl}/api/v1/datasets?q={q}&select=id,title&{context.ownerFilter}",
+              "x-itemsProp": "results",
+              "x-itemTitle": "title",
+              "x-itemKey": "id",
+              "properties": {
+                "id": { "type": "string", "title": "Identifiant" },
+                "title": { "type": "string", "title": "Titre" }
+              }
+            },
+            "drop": {
+              "type": "boolean",
+              "title": "Supprimer les données avant import",
+              "description": "Supprime toutes les lignes du jeu de données éditable avant d'y importer les nouvelles. Si décoché, les lignes seront ajoutées à la suite / éditées selon la clé primaire du jeu de données.\n\nSans effet sur un jeu de données fichier, dont le contenu est de toute façon intégralement remplacé.",
+              "default": false
+            }
           }
         },
-        "drop": {
-          "type": "boolean",
-          "title": "Supprimer les données avant import",
-          "description": "Supprime toutes les lignes du jeu de données éditable avant d'y importer les nouvelles. Si décoché, les lignes seront ajoutées à la suite / éditées selon la clé primaire du jeu de données.",
-          "default": false
+        {
+          "title": "Créer un jeu de données",
+          "required": ["datasetMode"],
+          "properties": {
+            "datasetMode": {
+              "type": "string",
+              "const": "create",
+              "title": "Action"
+            },
+            "dataset": {
+              "type": "object",
+              "title": "Jeu de données à créer",
+              "description": "Un jeu de données **fichier** est créé : data-fair déduit lui-même les colonnes et leurs types à partir du fichier importé.\n\nUne fois la création effectuée, ce traitement bascule automatiquement en mode « Mettre à jour un jeu de données » sur le jeu créé : les exécutions suivantes le mettront à jour au lieu d'en créer un nouveau.",
+              "properties": {
+                "title": {
+                  "type": "string",
+                  "title": "Titre (laissez vide pour utiliser le nom du fichier source)"
+                }
+              }
+            }
+          }
         }
-      }
+      ]
     },
     {
       "title": "Source des données",
@@ -33,7 +68,7 @@
           "title": "URL source",
           "type": "string",
           "pattern": "^(https?|s?ftp|ftps)://",
-          "description": "L'URL doit commencer par `http://`, `https://`, `ftp://`, `ftps://` ou `sftp://`.\n\n- **URL vers un dossier** (se terminant par `/`) : importe tous les fichiers correspondant au format choisi (onglet « Champs à récupérer ») dans le dossier (extension insensible à la casse, `.json` comme `.JSON`, `.csv` comme `.CSV`).\n- **URL vers un fichier** (se terminant par `.json` ou `.csv` selon le format choisi) : importe ce fichier uniquement.\n\nSi l'URL ne se termine ni par `/` ni par l'extension attendue, le comportement par défaut tente de télécharger un fichier unique."
+          "description": "L'URL doit commencer par `http://`, `https://`, `ftp://`, `ftps://` ou `sftp://`.\n\n- **URL vers un dossier** (se terminant par `/`) : importe tous les fichiers correspondant au format choisi (onglet « Champs à récupérer ») dans le dossier (extension insensible à la casse, `.json` comme `.JSON`, `.csv` comme `.CSV`).\n- **URL vers un fichier** (se terminant par `.json` ou `.csv` selon le format choisi) : importe ce fichier uniquement.\n- **URL vers une archive `.zip`** : l'archive est décompressée et tous les fichiers du format choisi qu'elle contient (y compris dans ses sous-dossiers) sont importés et concaténés. Les archives présentes dans un dossier importé sont en revanche ignorées : seule une archive directement visée par l'URL est décompressée.\n\nUne éventuelle query string (jeton d'accès de type SAS par exemple) est conservée pour le téléchargement et ignorée pour la détection de l'extension.\n\nSi l'URL ne se termine ni par `/` ni par l'extension attendue, le comportement par défaut tente de télécharger un fichier unique."
         },
         "username": {
           "title": "Utilisateur",
@@ -58,6 +93,7 @@
           "type": "string",
           "title": "Format des fichiers sources",
           "default": "json",
+          "description": "Format des fichiers à importer. Une archive `.zip` visée par l'URL est décompressée puis les fichiers de ce format qu'elle contient sont traités.",
           "oneOf": [
             { "const": "json", "title": "JSON" },
             { "const": "csv", "title": "CSV" }
@@ -66,7 +102,7 @@
         "sourceAction": {
           "type": "string",
           "title": "Action sur les fichiers sources après import",
-          "description": "Que faire des fichiers sur le serveur distant une fois qu'ils ont été importés avec succès.\n\n- **Ne rien faire** : les fichiers sont laissés tels quels sur le serveur.\n- **Supprimer** : chaque fichier importé est supprimé du serveur distant.\n- **Déplacer** : chaque fichier importé est déplacé dans le dossier d'archive configuré ci-dessous, ce qui permet d'en conserver une copie hors de son emplacement d'origine.\n\nEn mode « Supprimer » ou « Déplacer », si aucun fichier n'est trouvé sur le serveur, l'exécution est ignorée : elle se termine sans erreur et n'apparaît pas dans la liste des exécutions.",
+          "description": "Que faire des fichiers sur le serveur distant une fois qu'ils ont été importés avec succès.\n\n- **Ne rien faire** : les fichiers sont laissés tels quels sur le serveur.\n- **Supprimer** : chaque fichier importé est supprimé du serveur distant.\n- **Déplacer** : chaque fichier importé est déplacé dans le dossier d'archive configuré ci-dessous, ce qui permet d'en conserver une copie hors de son emplacement d'origine.\n\nDans le cas d'une archive `.zip`, l'action porte sur l'archive elle-même et non sur les fichiers qu'elle contient.\n\nEn mode « Supprimer » ou « Déplacer », si aucun fichier n'est trouvé sur le serveur, l'exécution est ignorée : elle se termine sans erreur et n'apparaît pas dans la liste des exécutions.",
           "default": "none",
           "layout": {
             "if": "parent.data.url && (parent.data.url.toLowerCase().startsWith('ftp') || parent.data.url.toLowerCase().startsWith('sftp'))"
@@ -87,7 +123,7 @@
         }
       }
     },
-    { 
+    {
       "layout": { "if": "!parent.data.format || parent.data.format === 'json'" },
       "title": "Champs à récupérer",
       "properties": {
