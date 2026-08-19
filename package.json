@@ -1,6 +1,6 @@
 {
   "name": "@data-fair/processing-json-file",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Create and update datasets from one or more remote JSON or CSV files, or a zip archive of them (HTTP, SFTP, FTP).",
   "main": "index.ts",
   "type": "module",
