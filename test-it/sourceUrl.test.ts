@@ -3,7 +3,7 @@ import assert from 'assert'
 import { stripQuery, sourceExtension, sourceBase, sourceDir } from '../lib/sourceUrl.ts'
 
 // URL with an Azure SAS token, the case that used to break extension detection
-const sasUrl = 'https://account.blob.core.windows.net/opendata/CONSO/conso-mensuel-ci-nat.zip?sp=r&st=2026-08-17T12:58:13Z&sig=zFqF%2BQ2c'
+const sasUrl = 'https://example.blob.core.windows.net/container/folder/archive.zip?sp=r&st=2000-01-01T00:00:00Z&sig=FAKE_SIGNATURE'
 
 describe('stripQuery', () => {
   it('leaves a plain URL untouched', () => {
@@ -11,7 +11,7 @@ describe('stripQuery', () => {
   })
 
   it('drops the query string', () => {
-    assert.equal(stripQuery(sasUrl), 'https://account.blob.core.windows.net/opendata/CONSO/conso-mensuel-ci-nat.zip')
+    assert.equal(stripQuery(sasUrl), 'https://example.blob.core.windows.net/container/folder/archive.zip')
   })
 
   it('drops the fragment', () => {
@@ -43,7 +43,7 @@ describe('sourceExtension', () => {
 
 describe('sourceBase', () => {
   it('returns the file name without the query string', () => {
-    assert.equal(sourceBase(sasUrl), 'conso-mensuel-ci-nat.zip')
+    assert.equal(sourceBase(sasUrl), 'archive.zip')
   })
 
   it('returns the folder name for a URL ending with a slash', () => {
@@ -65,6 +65,6 @@ describe('sourceDir', () => {
   })
 
   it('ignores the query string', () => {
-    assert.equal(sourceDir(sasUrl), 'https://account.blob.core.windows.net/opendata/CONSO')
+    assert.equal(sourceDir(sasUrl), 'https://example.blob.core.windows.net/container/folder')
   })
 })
