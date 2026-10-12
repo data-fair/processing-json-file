@@ -17,7 +17,8 @@ const listFilesRecursive = async (dir: string): Promise<string[]> => {
   for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name)
     if (entry.isDirectory()) files.push(...await listFilesRecursive(full))
-    else files.push(full)
+    // regular files only: a symbolic link from the archive could point to any local file
+    else if (entry.isFile()) files.push(full)
   }
   return files
 }

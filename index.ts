@@ -89,7 +89,8 @@ export const run = async ({ processingConfig, tmpDir, axios, log, patchConfig }:
       const remoteFiles = await listFiles(processingConfig, sftp)
       sources = remoteFiles
         .map(f => f.name)
-        .filter(name => name.toLowerCase().endsWith(extension))
+        // the names come from the remote server, they become local paths: no directory part
+        .filter(name => name === path.basename(name) && name.toLowerCase().endsWith(extension))
         .map(name => makeSource(base + '/' + name, dirUrl + '/' + base + '/' + name))
     } else {
       sources = [makeSource(base, rawUrl)]

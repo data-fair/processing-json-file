@@ -48,6 +48,7 @@
     "./lib/**/*"
   ],
   "dependencies": {
+    "@data-fair/lib-node": "^2.15.0",
     "@tootallnate/once": "^3.0.0",
     "axios": "^1.7.9",
     "form-data": "^4.0.6",

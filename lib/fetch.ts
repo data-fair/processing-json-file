@@ -7,6 +7,7 @@ import fs from 'fs-extra'
 import pump from 'pump'
 import SFTPClient from 'ssh2-sftp-client'
 import FTPClient from 'ftp'
+import { resolvePublicAddress } from '@data-fair/lib-node/ssrf.js'
 const ppump = promisify(pump as (source: Readable, dest: Writable, cb: (err?: Error) => void) => void)
 
 export class FileNotFoundError extends Error {
@@ -46,7 +47,8 @@ export const fetchHTTP = async (url: URL, processingConfig: any, tmpFile: string
 export const connectSFTP = async (processingConfig: any): Promise<SFTPClient> => {
   const url = new URL(processingConfig.url)
   const sftp = new SFTPClient()
-  await sftp.connect({ host: url.hostname, port: url.port ? Number(url.port) : undefined, username: processingConfig.username, password: processingConfig.password })
+  // the host is chosen by the user: connect to its checked public address (SSRF protection)
+  await sftp.connect({ host: await resolvePublicAddress(url.hostname), port: url.port ? Number(url.port) : undefined, username: processingConfig.username, password: processingConfig.password })
   return sftp
 }
 
@@ -65,12 +67,24 @@ export const fetchSFTP = async (url: URL, processingConfig: any, tmpFile: string
   return processingConfig.filename || decodeURIComponent(path.basename(url.pathname))
 }
 
+// in passive mode the server chooses the address of the data connection (PASV response),
+// ignore it and always connect to the checked address of the control connection
+export const pinPasvAddress = (ftp: any, host: string) => {
+  const pasvConnect = ftp._pasvConnect
+  ftp._pasvConnect = function (_ip: string, port: number, cb: (err?: Error, sock?: any) => void) {
+    return pasvConnect.call(this, host, port, cb)
+  }
+}
+
 // open a single FTP connection, meant to be reused across many operations
 // (downloading, deleting) to avoid reconnecting per file
 export const connectFTP = async (processingConfig: any): Promise<any> => {
   const url = new URL(processingConfig.url)
+  // the host is chosen by the user: connect to its checked public address (SSRF protection)
+  const host = await resolvePublicAddress(url.hostname)
   const ftp = new FTPClient()
-  ftp.connect({ host: url.hostname, port: url.port ? Number(url.port) : undefined, user: processingConfig.username, password: processingConfig.password })
+  pinPasvAddress(ftp, host)
+  ftp.connect({ host, port: url.port ? Number(url.port) : undefined, user: processingConfig.username, password: processingConfig.password })
   await once(ftp, 'ready')
   return ftp
 }

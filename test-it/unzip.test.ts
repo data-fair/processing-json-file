@@ -4,6 +4,7 @@ import fs from 'fs-extra'
 import path from 'path'
 import os from 'os'
 import { fileURLToPath } from 'url'
+import { execFileSync } from 'child_process'
 import { extractZip } from '../lib/unzip.ts'
 
 const exampleZipPath = fileURLToPath(new URL('./resources/example.zip', import.meta.url))
@@ -42,5 +43,16 @@ describe('extractZip', () => {
     const destDir = await makeTmpDir()
     const files = await extractZip(exampleZipPath, destDir, '.json')
     assert.deepEqual(files, [])
+  })
+
+  it('ignores symbolic links extracted from the archive', async () => {
+    const srcDir = await makeTmpDir()
+    await fs.writeFile(path.join(srcDir, 'a.csv'), 'name\nAlice\n')
+    await fs.symlink('/etc/hostname', path.join(srcDir, 'link.csv'))
+    const zipFile = path.join(await makeTmpDir(), 'links.zip')
+    execFileSync('zip', ['-q', '-y', zipFile, 'a.csv', 'link.csv'], { cwd: srcDir })
+    const destDir = await makeTmpDir()
+    const files = await extractZip(zipFile, destDir, '.csv')
+    assert.deepEqual(files.map(f => path.relative(destDir, f)), ['a.csv'])
   })
 })
